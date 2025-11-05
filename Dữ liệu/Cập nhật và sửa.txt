@@ -1,0 +1,258 @@
+
+-- =============================================================
+-- PATCH (TXT) — Align database schema to ERD v2 / Class Diagram v2
+-- Target: SQL Server (SSMS/sqlcmd)
+-- Usage:
+--   1) Open in SSMS, replace the DB name below if needed.
+--   2) F5 to run once; safe to re-run (idempotent where possible).
+-- =============================================================
+
+USE [QuanLyCanHo];
+GO
+
+/* -----------------------------
+   0) Chuẩn hoá Người dùng
+------------------------------*/
+IF COL_LENGTH('dbo.NguoiDung','SoDienThoai') IS NULL
+    ALTER TABLE dbo.NguoiDung ADD SoDienThoai NVARCHAR(20) NULL;
+IF COL_LENGTH('dbo.NguoiDung','MatKhauHash') IS NULL
+    ALTER TABLE dbo.NguoiDung ADD MatKhauHash NVARCHAR(255) NULL;
+GO
+
+/* -----------------------------
+   1) ThongBaoNguoiDung
+   - Đảm bảo UNIQUE(MaThongBao, MaNguoiDung)
+   - Nếu bảng chưa tồn tại, tạo mới.
+------------------------------*/
+IF OBJECT_ID('dbo.ThongBaoNguoiDung','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.ThongBaoNguoiDung (
+        MaTB_ND     INT IDENTITY(1,1) PRIMARY KEY,
+        MaThongBao  INT NOT NULL,
+        MaNguoiDung INT NOT NULL,
+        ThoiGianGui DATETIME NOT NULL DEFAULT(GETDATE()),
+        DaDoc       BIT NOT NULL DEFAULT(0)
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UQ_TBND' AND object_id=OBJECT_ID('dbo.ThongBaoNguoiDung'))
+BEGIN
+    ALTER TABLE dbo.ThongBaoNguoiDung
+      ADD CONSTRAINT UQ_TBND UNIQUE (MaThongBao, MaNguoiDung);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_TBND_ThongBao')
+AND COL_LENGTH('dbo.ThongBaoNguoiDung','MaThongBao') IS NOT NULL
+AND OBJECT_ID('dbo.ThongBao','U') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.ThongBaoNguoiDung
+      ADD CONSTRAINT FK_TBND_ThongBao FOREIGN KEY (MaThongBao) REFERENCES dbo.ThongBao(MaThongBao) ON DELETE CASCADE;
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_TBND_NguoiDung')
+AND COL_LENGTH('dbo.ThongBaoNguoiDung','MaNguoiDung') IS NOT NULL
+AND OBJECT_ID('dbo.NguoiDung','U') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.ThongBaoNguoiDung
+      ADD CONSTRAINT FK_TBND_NguoiDung FOREIGN KEY (MaNguoiDung) REFERENCES dbo.NguoiDung(MaNguoiDung) ON DELETE CASCADE;
+END
+GO
+
+/* -----------------------------
+   2) LichHen
+   - Đổi tên cột cho đúng (nếu tồn tại)
+   - Thêm FK tới YeuCau
+------------------------------*/
+IF COL_LENGTH('dbo.LichHen','MaYeuCau') IS NULL AND COL_LENGTH('dbo.LichHen','MaXacCau') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'dbo.LichHen.MaXacCau', 'MaYeuCau', 'COLUMN';
+END
+IF COL_LENGTH('dbo.LichHen','TrangThai') IS NULL AND COL_LENGTH('dbo.LichHen','LichHienTrangThaiPhaThuong') IS NOT NULL
+BEGIN
+    EXEC sp_rename 'dbo.LichHen.LichHienTrangThaiPhaThuong', 'TrangThai', 'COLUMN';
+END
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_LichHen_YeuCau')
+AND OBJECT_ID('dbo.YeuCau','U') IS NOT NULL
+AND COL_LENGTH('dbo.LichHen','MaYeuCau') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.LichHen
+      ADD CONSTRAINT FK_LichHen_YeuCau FOREIGN KEY (MaYeuCau) REFERENCES dbo.YeuCau(MaYeuCau) ON DELETE CASCADE;
+END
+GO
+
+/* -----------------------------
+   3) YeuCauLog
+   - Chuẩn hóa cột tên sai chính tả 
+   - Thêm FK người xử lý
+------------------------------*/
+IF COL_LENGTH('dbo.YeuCauLog','NguoiXuLyId') IS NULL AND COL_LENGTH('dbo.YeuCauLog','NguyenVanVai') IS NOT NULL
+    EXEC sp_rename 'dbo.YeuCauLog.NguyenVanVai', 'NguoiXuLyId', 'COLUMN';
+IF COL_LENGTH('dbo.YeuCauLog','GhiChu') IS NULL AND COL_LENGTH('dbo.YeuCauLog','YeuCauOu') IS NOT NULL
+    EXEC sp_rename 'dbo.YeuCauLog.YeuCauOu', 'GhiChu', 'COLUMN';
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_YeuCauLog_NguoiXuLy')
+AND OBJECT_ID('dbo.NguoiDung','U') IS NOT NULL
+AND COL_LENGTH('dbo.YeuCauLog','NguoiXuLyId') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.YeuCauLog
+      ADD CONSTRAINT FK_YeuCauLog_NguoiXuLy FOREIGN KEY (NguoiXuLyId) REFERENCES dbo.NguoiDung(MaNguoiDung) ON DELETE SET NULL;
+END
+GO
+
+/* -----------------------------
+   4) LichSuCuTru
+   - Bổ sung liên kết tới CanHo + mốc thời gian & vai trò
+------------------------------*/
+IF COL_LENGTH('dbo.LichSuCuTru','MaCanHo') IS NULL
+    ALTER TABLE dbo.LichSuCuTru ADD MaCanHo INT NOT NULL DEFAULT(0);
+IF COL_LENGTH('dbo.LichSuCuTru','TuNgay') IS NULL AND COL_LENGTH('dbo.LichSuCuTru','ThuNgay') IS NOT NULL
+    EXEC sp_rename 'dbo.LichSuCuTru.ThuNgay', 'TuNgay', 'COLUMN';
+IF COL_LENGTH('dbo.LichSuCuTru','TuNgay') IS NULL
+    ALTER TABLE dbo.LichSuCuTru ADD TuNgay DATE NOT NULL DEFAULT(GETDATE());
+IF COL_LENGTH('dbo.LichSuCuTru','DenNgay') IS NULL
+    ALTER TABLE dbo.LichSuCuTru ADD DenNgay DATE NULL;
+IF COL_LENGTH('dbo.LichSuCuTru','VaiTroCuTru') IS NULL
+    ALTER TABLE dbo.LichSuCuTru ADD VaiTroCuTru NVARCHAR(20) NULL;
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_LichSuCuTru_CanHo')
+AND OBJECT_ID('dbo.CanHo','U') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.LichSuCuTru
+      ADD CONSTRAINT FK_LichSuCuTru_CanHo FOREIGN KEY (MaCanHo) REFERENCES dbo.CanHo(MaCanHo) ON DELETE CASCADE;
+END
+GO
+
+/* -----------------------------
+   5) ChiSoDichVu
+   - Bổ sung FK tới DichVu
+   - Unique theo (CanHo,DichVu,KyThang)
+------------------------------*/
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_ChiSoDichVu_DichVu' AND parent_object_id=OBJECT_ID('dbo.ChiSoDichVu'))
+AND OBJECT_ID('dbo.DichVu','U') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.ChiSoDichVu
+      ADD CONSTRAINT FK_ChiSoDichVu_DichVu FOREIGN KEY (MaDichVu) REFERENCES dbo.DichVu(MaDichVu);
+END
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UQ_ChiSoDichVu_Ky' AND object_id=OBJECT_ID('dbo.ChiSoDichVu'))
+BEGIN
+    CREATE UNIQUE NONCLUSTERED INDEX UQ_ChiSoDichVu_Ky ON dbo.ChiSoDichVu(MaCanHo, MaDichVu, KyThang);
+END
+GO
+
+/* -----------------------------
+   6) ChiTietHoaDon
+   - Thêm FK MaChiSo -> ChiSoDichVu
+------------------------------*/
+IF COL_LENGTH('dbo.ChiTietHoaDon','MaChiSo') IS NOT NULL
+AND OBJECT_ID('dbo.ChiSoDichVu','U') IS NOT NULL
+AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_ChiTietHoaDon_ChiSo')
+BEGIN
+    ALTER TABLE dbo.ChiTietHoaDon
+      ADD CONSTRAINT FK_ChiTietHoaDon_ChiSo FOREIGN KEY (MaChiSo) REFERENCES dbo.ChiSoDichVu(MaChiSo);
+END
+GO
+
+/* -----------------------------
+   7) HopDong & DieuKhoan (tạo mới nếu chưa có)
+------------------------------*/
+IF OBJECT_ID('dbo.HopDong','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.HopDong (
+        MaHopDong   INT IDENTITY(1,1) PRIMARY KEY,
+        MaCanHo     INT NOT NULL,
+        ChuHoId     INT NOT NULL,
+        Loai        NVARCHAR(50) NOT NULL DEFAULT(N'Mua/Bán'),
+        NgayKy      DATE NULL,
+        NgayHetHan  DATE NULL,
+        MaTrangThai INT NULL
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_HopDong_CanHo')
+AND OBJECT_ID('dbo.HopDong','U') IS NOT NULL
+AND OBJECT_ID('dbo.CanHo','U') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.HopDong
+      ADD CONSTRAINT FK_HopDong_CanHo FOREIGN KEY (MaCanHo) REFERENCES dbo.CanHo(MaCanHo) ON DELETE CASCADE;
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_HopDong_NguoiDung')
+AND OBJECT_ID('dbo.HopDong','U') IS NOT NULL
+AND OBJECT_ID('dbo.NguoiDung','U') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.HopDong
+      ADD CONSTRAINT FK_HopDong_NguoiDung FOREIGN KEY (ChuHoId) REFERENCES dbo.NguoiDung(MaNguoiDung);
+END
+GO
+
+IF OBJECT_ID('dbo.DieuKhoan','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.DieuKhoan (
+        MaDieuKhoan INT IDENTITY(1,1) PRIMARY KEY,
+        MaHopDong   INT NOT NULL,
+        NoiDung     NVARCHAR(MAX) NOT NULL
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_DieuKhoan_HopDong')
+AND OBJECT_ID('dbo.DieuKhoan','U') IS NOT NULL
+AND OBJECT_ID('dbo.HopDong','U') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.DieuKhoan
+      ADD CONSTRAINT FK_DieuKhoan_HopDong FOREIGN KEY (MaHopDong) REFERENCES dbo.HopDong(MaHopDong) ON DELETE CASCADE;
+END
+GO
+
+/* -----------------------------
+   8) GiaoDichThanhToan (tạo mới)
+   - FK đến ThanhToan (cột PK có thể là MaThanhToan hoặc MaHoaDon tùy DB hiện tại)
+------------------------------*/
+IF OBJECT_ID('dbo.GiaoDichThanhToan','U') IS NULL
+BEGIN
+    CREATE TABLE dbo.GiaoDichThanhToan (
+        MaGDThanhToan INT IDENTITY(1,1) PRIMARY KEY,
+        MaThanhToan   INT NOT NULL,
+        MaGiaoDich    NVARCHAR(100) NULL,
+        Cong          NVARCHAR(50) NULL,
+        Kenh          NVARCHAR(100) NULL,
+        TrangThai     NVARCHAR(50) NULL,
+        ThoiDiem      DATETIME NOT NULL DEFAULT(GETDATE())
+    );
+END
+GO
+
+-- Thêm FK theo cột hiện hữu trong ThanhToan
+IF OBJECT_ID('dbo.ThanhToan','U') IS NOT NULL
+BEGIN
+    IF COL_LENGTH('dbo.ThanhToan','MaThanhToan') IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_GDThanhToan_ThanhToan')
+    BEGIN
+        ALTER TABLE dbo.GiaoDichThanhToan
+          ADD CONSTRAINT FK_GDThanhToan_ThanhToan FOREIGN KEY (MaThanhToan) REFERENCES dbo.ThanhToan(MaThanhToan);
+    END
+    ELSE IF COL_LENGTH('dbo.ThanhToan','MaHoaDon') IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_GDThanhToan_ThanhToan')
+    BEGIN
+        ALTER TABLE dbo.GiaoDichThanhToan
+          ADD CONSTRAINT FK_GDThanhToan_ThanhToan FOREIGN KEY (MaThanhToan) REFERENCES dbo.ThanhToan(MaHoaDon);
+    END
+END
+GO
+
+/* -----------------------------
+   9) TrangThai: bổ sung cột theo mô hình dùng chung
+------------------------------*/
+  IF COL_LENGTH('dbo.TrangThai','Context') IS NULL
+    ALTER TABLE dbo.TrangThai ADD Context NVARCHAR(50) NULL;
+IF COL_LENGTH('dbo.TrangThai','Code') IS NULL
+    ALTER TABLE dbo.TrangThai ADD Code NVARCHAR(50) NULL;
+IF COL_LENGTH('dbo.TrangThai','Ten') IS NULL
+    ALTER TABLE dbo.TrangThai ADD Ten NVARCHAR(100) NULL;
+GO
+-- ================== END PATCH ==================

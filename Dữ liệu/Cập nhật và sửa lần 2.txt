@@ -1,0 +1,254 @@
+USE QuanLyCanHo;
+GO
+
+/* =============================
+   0) Chuẩn hóa/điều chỉnh nhỏ
+   ============================= */
+
+-- Đổi 'Khách hàng' -> 'Resident' để đồng nhất thuật ngữ
+IF EXISTS (SELECT 1 FROM dbo.VaiTro WHERE TenVaiTro = N'Khách hàng')
+  UPDATE dbo.VaiTro SET TenVaiTro = N'Resident' WHERE TenVaiTro = N'Khách hàng';
+
+-- Bổ sung số ĐT, mật khẩu hash cho 3 người dùng mẫu (nếu cột đã được patch)
+IF COL_LENGTH('dbo.NguoiDung','SoDienThoai') IS NOT NULL
+BEGIN
+  UPDATE dbo.NguoiDung SET SoDienThoai = '0901000001' WHERE Email='nguyenvana@example.com' AND SoDienThoai IS NULL;
+  UPDATE dbo.NguoiDung SET SoDienThoai = '0901000002' WHERE Email='tranthib@example.com' AND SoDienThoai IS NULL;
+  UPDATE dbo.NguoiDung SET SoDienThoai = '0901000003' WHERE Email='levanc@example.com' AND SoDienThoai IS NULL;
+END
+
+IF COL_LENGTH('dbo.NguoiDung','MatKhauHash') IS NOT NULL
+BEGIN
+  -- chỉ là ví dụ; khi chạy thật bạn thay bằng bcrypt hash từ service
+  UPDATE dbo.NguoiDung SET MatKhauHash = 'hash-demo-1' WHERE Email='nguyenvana@example.com' AND MatKhauHash IS NULL;
+  UPDATE dbo.NguoiDung SET MatKhauHash = 'hash-demo-2' WHERE Email='tranthib@example.com' AND MatKhauHash IS NULL;
+  UPDATE dbo.NguoiDung SET MatKhauHash = 'hash-demo-3' WHERE Email='levanc@example.com' AND MatKhauHash IS NULL;
+END
+GO
+
+/* =============================
+   1) Tầng & Căn hộ mẫu
+   ============================= */
+-- Lấy Block A/B/C đã có
+DECLARE @blkA INT = (SELECT TOP 1 MaBlock FROM dbo.Block WHERE TenBlock = N'Block A');
+DECLARE @blkB INT = (SELECT TOP 1 MaBlock FROM dbo.Block WHERE TenBlock = N'Block B');
+DECLARE @blkC INT = (SELECT TOP 1 MaBlock FROM dbo.Block WHERE TenBlock = N'Block C');
+
+-- Thêm 2 tầng đầu cho mỗi block (nếu chưa có)
+IF NOT EXISTS (SELECT 1 FROM dbo.Tang WHERE MaBlock=@blkA AND SoTang=1) INSERT dbo.Tang(MaBlock,SoTang) VALUES(@blkA,1);
+IF NOT EXISTS (SELECT 1 FROM dbo.Tang WHERE MaBlock=@blkA AND SoTang=2) INSERT dbo.Tang(MaBlock,SoTang) VALUES(@blkA,2);
+IF NOT EXISTS (SELECT 1 FROM dbo.Tang WHERE MaBlock=@blkB AND SoTang=1) INSERT dbo.Tang(MaBlock,SoTang) VALUES(@blkB,1);
+IF NOT EXISTS (SELECT 1 FROM dbo.Tang WHERE MaBlock=@blkB AND SoTang=2) INSERT dbo.Tang(MaBlock,SoTang) VALUES(@blkB,2);
+
+-- Thêm 3 căn/h tầng cho Block A – Tầng 1 & 2
+DECLARE @tA1 INT = (SELECT TOP 1 MaTang FROM dbo.Tang WHERE MaBlock=@blkA AND SoTang=1);
+DECLARE @tA2 INT = (SELECT TOP 1 MaTang FROM dbo.Tang WHERE MaBlock=@blkA AND SoTang=2);
+
+IF NOT EXISTS (SELECT 1 FROM dbo.CanHo WHERE MaTang=@tA1 AND SoCanHo=N'101') INSERT dbo.CanHo(MaTang,SoCanHo) VALUES(@tA1,N'101');
+IF NOT EXISTS (SELECT 1 FROM dbo.CanHo WHERE MaTang=@tA1 AND SoCanHo=N'102') INSERT dbo.CanHo(MaTang,SoCanHo) VALUES(@tA1,N'102');
+IF NOT EXISTS (SELECT 1 FROM dbo.CanHo WHERE MaTang=@tA1 AND SoCanHo=N'103') INSERT dbo.CanHo(MaTang,SoCanHo) VALUES(@tA1,N'103');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.CanHo WHERE MaTang=@tA2 AND SoCanHo=N'201') INSERT dbo.CanHo(MaTang,SoCanHo) VALUES(@tA2,N'201');
+IF NOT EXISTS (SELECT 1 FROM dbo.CanHo WHERE MaTang=@tA2 AND SoCanHo=N'202') INSERT dbo.CanHo(MaTang,SoCanHo) VALUES(@tA2,N'202');
+
+DECLARE @ch101 INT = (SELECT MaCanHo FROM dbo.CanHo WHERE MaTang=@tA1 AND SoCanHo=N'101');
+DECLARE @ch102 INT = (SELECT MaCanHo FROM dbo.CanHo WHERE MaTang=@tA1 AND SoCanHo=N'102');
+DECLARE @ch201 INT = (SELECT MaCanHo FROM dbo.CanHo WHERE MaTang=@tA2 AND SoCanHo=N'201');
+
+/* =============================
+   2) Trạng thái dùng chung
+   (bảng TrangThai đã được patch thêm Context/Code/Ten)
+   ============================= */
+IF COL_LENGTH('dbo.TrangThai','Context') IS NOT NULL
+BEGIN
+  -- Hóa đơn
+  IF NOT EXISTS (SELECT 1 FROM dbo.TrangThai WHERE Context='INVOICE' AND Code='ISSUED')
+    INSERT dbo.TrangThai(Context,Code,Ten) VALUES('INVOICE','ISSUED',N'Đã phát hành');
+  IF NOT EXISTS (SELECT 1 FROM dbo.TrangThai WHERE Context='INVOICE' AND Code='PAID')
+    INSERT dbo.TrangThai(Context,Code,Ten) VALUES('INVOICE','PAID',N'Đã thanh toán');
+  IF NOT EXISTS (SELECT 1 FROM dbo.TrangThai WHERE Context='INVOICE' AND Code='OVERDUE')
+    INSERT dbo.TrangThai(Context,Code,Ten) VALUES('INVOICE','OVERDUE',N'Quá hạn');
+
+  -- Yêu cầu
+  IF NOT EXISTS (SELECT 1 FROM dbo.TrangThai WHERE Context='REQUEST' AND Code='OPEN')
+    INSERT dbo.TrangThai(Context,Code,Ten) VALUES('REQUEST','OPEN',N'Đang mở');
+  IF NOT EXISTS (SELECT 1 FROM dbo.TrangThai WHERE Context='REQUEST' AND Code='IN_PROGRESS')
+    INSERT dbo.TrangThai(Context,Code,Ten) VALUES('REQUEST','IN_PROGRESS',N'Đang xử lý');
+  IF NOT EXISTS (SELECT 1 FROM dbo.TrangThai WHERE Context='REQUEST' AND Code='RESOLVED')
+    INSERT dbo.TrangThai(Context,Code,Ten) VALUES('REQUEST','RESOLVED',N'Đã xử lý');
+  IF NOT EXISTS (SELECT 1 FROM dbo.TrangThai WHERE Context='REQUEST' AND Code='CANCELED')
+    INSERT dbo.TrangThai(Context,Code,Ten) VALUES('REQUEST','CANCELED',N'Đã hủy');
+END
+
+/* =============================
+   3) Hợp đồng & Điều khoản
+   ============================= */
+DECLARE @chuHo INT = (SELECT MaNguoiDung FROM dbo.NguoiDung WHERE Email='nguyenvana@example.com');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.HopDong WHERE MaCanHo=@ch101 AND ChuHoId=@chuHo)
+BEGIN
+  INSERT dbo.HopDong(MaCanHo, ChuHoId, Loai, NgayKy, NgayHetHan)
+  VALUES(@ch101, @chuHo, N'Mua/Bán', DATEFROMPARTS(YEAR(GETDATE())-1, 6, 1), DATEFROMPARTS(YEAR(GETDATE())+2, 6, 1));
+END
+
+DECLARE @hd101 INT = (SELECT TOP 1 MaHopDong FROM dbo.HopDong WHERE MaCanHo=@ch101 AND ChuHoId=@chuHo ORDER BY MaHopDong DESC);
+
+IF NOT EXISTS (SELECT 1 FROM dbo.DieuKhoan WHERE MaHopDong=@hd101)
+BEGIN
+  INSERT dbo.DieuKhoan(MaHopDong,NoiDung) VALUES
+  (@hd101, N'Bên A chịu trách nhiệm thanh toán phí quản lý đúng hạn.'),
+  (@hd101, N'Chỉ số điện, nước được chốt ngày cuối mỗi tháng.');
+END
+
+/* =============================
+   4) Lịch sử cư trú
+   ============================= */
+IF NOT EXISTS (SELECT 1 FROM dbo.LichSuCuTru WHERE MaNguoiDung=@chuHo AND MaCanHo=@ch101)
+  INSERT dbo.LichSuCuTru(MaNguoiDung, MaCanHo, TuNgay, DenNgay, VaiTroCuTru)
+  VALUES(@chuHo, @ch101, DATEFROMPARTS(YEAR(GETDATE())-1,6,1), NULL, N'Chủ hộ');
+
+DECLARE @cuDanB INT = (SELECT MaNguoiDung FROM dbo.NguoiDung WHERE Email='tranthib@example.com');
+IF NOT EXISTS (SELECT 1 FROM dbo.LichSuCuTru WHERE MaNguoiDung=@cuDanB AND MaCanHo=@ch101 AND TuNgay=DATEFROMPARTS(YEAR(GETDATE())-1,7,1))
+  INSERT dbo.LichSuCuTru(MaNguoiDung, MaCanHo, TuNgay, DenNgay, VaiTroCuTru)
+  VALUES(@cuDanB, @ch101, DATEFROMPARTS(YEAR(GETDATE())-1,7,1), NULL, N'Thành viên');
+
+/* =============================
+   5) Bảng giá dịch vụ (hiệu lực)
+   ============================= */
+DECLARE @dvDien  INT = (SELECT MaDichVu FROM dbo.DichVu WHERE TenDichVu=N'Điện');
+DECLARE @dvNuoc  INT = (SELECT MaDichVu FROM dbo.DichVu WHERE TenDichVu=N'Nước');
+DECLARE @dvQL    INT = (SELECT MaDichVu FROM dbo.DichVu WHERE TenDichVu=N'Phí quản lý');
+DECLARE @dvNet   INT = (SELECT MaDichVu FROM dbo.DichVu WHERE TenDichVu=N'Internet');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.BangGia WHERE MaDichVu=@dvDien AND HieuLucTu='2025-01-01')
+  INSERT dbo.BangGia(MaDichVu,HieuLucTu,HieuLucDen,DonGiaBien) VALUES
+  (@dvDien,'2025-01-01',NULL, 3500);         -- VND/kWh
+IF NOT EXISTS (SELECT 1 FROM dbo.BangGia WHERE MaDichVu=@dvNuoc AND HieuLucTu='2025-01-01')
+  INSERT dbo.BangGia(MaDichVu,HieuLucTu,HieuLucDen,DonGiaBien) VALUES
+  (@dvNuoc,'2025-01-01',NULL, 12000);        -- VND/m3
+IF NOT EXISTS (SELECT 1 FROM dbo.BangGia WHERE MaDichVu=@dvQL AND HieuLucTu='2025-01-01')
+  INSERT dbo.BangGia(MaDichVu,HieuLucTu,HieuLucDen,DonGiaBien) VALUES
+  (@dvQL,'2025-01-01',NULL, 350000);         -- VND/tháng/căn
+IF NOT EXISTS (SELECT 1 FROM dbo.BangGia WHERE MaDichVu=@dvNet AND HieuLucTu='2025-01-01')
+  INSERT dbo.BangGia(MaDichVu,HieuLucTu,HieuLucDen,DonGiaBien) VALUES
+  (@dvNet,'2025-01-01',NULL, 200000);
+
+/* =============================
+   6) Chỉ số dịch vụ tháng gần nhất
+   ============================= */
+DECLARE @ky DATE = DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE())-1, 1); -- kỳ tháng trước
+
+-- Điện
+IF NOT EXISTS (SELECT 1 FROM dbo.ChiSoDichVu WHERE MaCanHo=@ch101 AND MaDichVu=@dvDien AND KyThang=@ky)
+  INSERT dbo.ChiSoDichVu(MaCanHo,MaDichVu,KyThang,ChiSoCu,ChiSoMoi)
+  VALUES(@ch101,@dvDien,@ky, 1234, 1298);
+
+-- Nước
+IF NOT EXISTS (SELECT 1 FROM dbo.ChiSoDichVu WHERE MaCanHo=@ch101 AND MaDichVu=@dvNuoc AND KyThang=@ky)
+  INSERT dbo.ChiSoDichVu(MaCanHo,MaDichVu,KyThang,ChiSoCu,ChiSoMoi)
+  VALUES(@ch101,@dvNuoc,@ky, 56, 64);
+
+DECLARE @csDien INT = (SELECT MaChiSo FROM dbo.ChiSoDichVu WHERE MaCanHo=@ch101 AND MaDichVu=@dvDien AND KyThang=@ky);
+DECLARE @csNuoc INT = (SELECT MaChiSo FROM dbo.ChiSoDichVu WHERE MaCanHo=@ch101 AND MaDichVu=@dvNuoc AND KyThang=@ky);
+
+/* =============================
+   7) Hóa đơn tháng trước + chi tiết
+   ============================= */
+IF NOT EXISTS (SELECT 1 FROM dbo.HoaDon WHERE MaCanHo=@ch101 AND KyThang=@ky)
+BEGIN
+  INSERT dbo.HoaDon(MaCanHo,KyThang,NgayPhatHanh,NgayDenHan,TongTien)
+  VALUES(@ch101,@ky, DATEADD(DAY,1,@ky), DATEADD(DAY,15,@ky), 0);
+END
+
+DECLARE @hd INT = (SELECT MaHoaDon FROM dbo.HoaDon WHERE MaCanHo=@ch101 AND KyThang=@ky);
+
+-- Chi tiết (gắn MaChiSo cho DV đo đếm; DV fixed không cần)
+IF NOT EXISTS (SELECT 1 FROM dbo.ChiTietHoaDon WHERE MaHoaDon=@hd AND MaDichVu=@dvDien)
+  INSERT dbo.ChiTietHoaDon(MaHoaDon,MaDichVu,ThanhTien,MaChiSo)
+  VALUES(@hd,@dvDien, (1298-1234)*3500, @csDien);
+
+IF NOT EXISTS (SELECT 1 FROM dbo.ChiTietHoaDon WHERE MaHoaDon=@hd AND MaDichVu=@dvNuoc)
+  INSERT dbo.ChiTietHoaDon(MaHoaDon,MaDichVu,ThanhTien,MaChiSo)
+  VALUES(@hd,@dvNuoc, (64-56)*12000, @csNuoc);
+
+IF NOT EXISTS (SELECT 1 FROM dbo.ChiTietHoaDon WHERE MaHoaDon=@hd AND MaDichVu=@dvQL)
+  INSERT dbo.ChiTietHoaDon(MaHoaDon,MaDichVu,ThanhTien) VALUES(@hd,@dvQL,350000);
+
+IF NOT EXISTS (SELECT 1 FROM dbo.ChiTietHoaDon WHERE MaHoaDon=@hd AND MaDichVu=@dvNet)
+  INSERT dbo.ChiTietHoaDon(MaHoaDon,MaDichVu,ThanhTien) VALUES(@hd,@dvNet,200000);
+
+-- Cập nhật tổng tiền
+UPDATE dbo.HoaDon
+SET TongTien = (SELECT SUM(ThanhTien) FROM dbo.ChiTietHoaDon WHERE MaHoaDon=@hd)
+WHERE MaHoaDon=@hd;
+
+-- Thanh toán một phần & giao dịch cổng
+IF NOT EXISTS (SELECT 1 FROM dbo.ThanhToan WHERE MaHoaDon=@hd AND ThanhTien=500000)
+  INSERT dbo.ThanhToan(MaHoaDon,NgayThanhToan,ThanhTien) VALUES(@hd, GETDATE(), 500000);
+
+DECLARE @tt INT = (SELECT TOP 1 MaThanhToan FROM dbo.ThanhToan WHERE MaHoaDon=@hd ORDER BY MaThanhToan DESC);
+IF OBJECT_ID('dbo.GiaoDichThanhToan','U') IS NOT NULL
+AND NOT EXISTS (SELECT 1 FROM dbo.GiaoDichThanhToan WHERE MaThanhToan=@tt)
+  INSERT dbo.GiaoDichThanhToan(MaThanhToan,MaGiaoDich,Cong,Kenh,TrangThai)
+  VALUES(@tt,'GD'+CONVERT(NVARCHAR(20),@tt),'VNPAY','QR','SUCCESS');
+
+/* =============================
+   8) Yêu cầu, log & lịch hẹn
+   ============================= */
+IF NOT EXISTS (SELECT 1 FROM dbo.YeuCau WHERE MaNguoiDung=@chuHo AND Loai=N'Sửa điện')
+  INSERT dbo.YeuCau(MaNguoiDung,MaCanHo,Loai,SoTienThaiHoi,TrangThaiThanhChung)
+  VALUES(@chuHo,@ch101,N'Sửa điện',0,N'OPEN');
+
+DECLARE @yc INT = (SELECT TOP 1 MaYeuCau FROM dbo.YeuCau WHERE MaNguoiDung=@chuHo AND Loai=N'Sửa điện' ORDER BY MaYeuCau DESC);
+
+-- Log xử lý
+-- (A) Ghi log yêu cầu
+-- Cũ (sai): ... (MaYeuCau, MaTrangThai, ThoiGian, YeuCauOu)
+INSERT dbo.YeuCauLog (MaYeuCau, MaTrangThai, ThoiGian, GhiChu)
+VALUES (@yc, NULL, GETDATE(), N'Tiếp nhận yêu cầu');
+
+-- (B) Tạo lịch hẹn
+-- Cũ (sai): ... (MaYeuCau, ThoiGian, MaNguoiDung, LichHienTrangThaiPhaThuong)
+INSERT dbo.LichHen (MaYeuCau, ThoiGian, MaNguoiDung, TrangThai)
+VALUES (@yc, DATEADD(DAY,1,GETDATE()), @chuHo, N'SCHEDULED');
+
+
+/* =============================
+   9) Nhân sự kỹ thuật & khu vực chung
+   ============================= */
+-- biến @nv tương ứng Người dùng B làm nhân viên
+IF NOT EXISTS (SELECT 1 FROM dbo.NhanVien nv JOIN dbo.NguoiDung nd ON nv.MaNguoiDung=nd.MaNguoiDung WHERE nd.Email='tranthib@example.com')
+BEGIN
+  DECLARE @ndB INT = (SELECT MaNguoiDung FROM dbo.NguoiDung WHERE Email='tranthib@example.com');
+  INSERT dbo.NhanVien(MaNguoiDung,ChucVu) VALUES(@ndB,N'Kỹ thuật');
+END
+DECLARE @maNV INT = (SELECT TOP 1 nv.MaNhanVien FROM dbo.NhanVien nv JOIN dbo.NguoiDung nd ON nv.MaNguoiDung=nd.MaNguoiDung WHERE nd.Email='tranthib@example.com');
+
+-- Khu vực chung
+IF NOT EXISTS (SELECT 1 FROM dbo.KhuVucChung WHERE MaBlock=@blkA AND Ten=N'Sảnh Block A')
+  INSERT dbo.KhuVucChung(MaBlock,Ten,Loai,MoTa,Tang) VALUES(@blkA,N'Sảnh Block A',N'Khu công cộng',N'Khu sảnh chính',0);
+
+DECLARE @kvc INT = (SELECT TOP 1 MaKhuVucChung FROM dbo.KhuVucChung WHERE MaBlock=@blkA AND Ten=N'Sảnh Block A');
+
+-- Lịch trực & phân công
+IF NOT EXISTS (SELECT 1 FROM dbo.LichTruc WHERE MaNhanVien=@maNV AND Ngay=CAST(GETDATE() AS DATE) AND Ca=N'Sáng')
+  INSERT dbo.LichTruc(MaNhanVien,Ngay,Ca,GhiChu) VALUES(@maNV, CAST(GETDATE() AS DATE), N'Sáng', N'Ca trực mẫu');
+
+IF NOT EXISTS (SELECT 1 FROM dbo.PhanCong WHERE MaNhanVien=@maNV AND MaKhuVucChung=@kvc AND Ngay=CAST(GETDATE() AS DATE))
+  INSERT dbo.PhanCong(MaNhanVien,MaKhuVucChung,Ngay,Ca,NoiDung,TrangThai)
+  VALUES(@maNV,@kvc,CAST(GETDATE() AS DATE),N'Chiều',N'Kiểm tra điện khu sảnh',N'Đang phân công');
+
+/* =============================
+   10) Thông báo & thông báo người dùng
+   ============================= */
+IF NOT EXISTS (SELECT 1 FROM dbo.ThongBao WHERE MaNguoiDung=@chuHo AND MaTemplate IS NULL AND NoiDung LIKE N'%điện thang máy%')
+  INSERT dbo.ThongBao(MaNguoiDung,NoiDung)
+  VALUES(@chuHo, N'Thông báo: Bảo trì điện thang máy vào 20:00 hôm nay.');
+
+DECLARE @tb INT = (SELECT TOP 1 MaThongBao FROM dbo.ThongBao WHERE MaNguoiDung=@chuHo ORDER BY MaThongBao DESC);
+
+IF NOT EXISTS (SELECT 1 FROM dbo.ThongBaoNguoiDung WHERE MaThongBao=@tb AND MaNguoiDung=@chuHo)
+  INSERT dbo.ThongBaoNguoiDung(MaThongBao,MaNguoiDung) VALUES(@tb,@chuHo);
+
+PRINT '✔ Dữ liệu mẫu đã sẵn sàng.';
+GO

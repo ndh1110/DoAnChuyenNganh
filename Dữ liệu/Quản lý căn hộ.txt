@@ -1,0 +1,523 @@
+-- =============================================
+-- HỆ THỐNG QUẢN LÝ BÁN HÀNG - SQL SERVER
+-- Tác giả: Database Design Expert
+-- Ngày tạo: 2025-10-30
+-- =============================================
+
+-- Tạo Database
+CREATE DATABASE QuanLyCanHo;
+GO
+
+USE QuanLyCanHo;
+GO
+
+-- =============================================
+-- CORE MODULE (Khối Cơ Bản)
+-- =============================================
+
+-- Bảng VaiTro (Roles)
+CREATE TABLE VaiTro (
+    MaVaiTro INT IDENTITY(1,1) PRIMARY KEY,
+    TenVaiTro NVARCHAR(100) NOT NULL UNIQUE,
+    CONSTRAINT CK_VaiTro_TenVaiTro CHECK (TenVaiTro <> '')
+);
+
+-- Bảng NguoiDung (Users)
+CREATE TABLE NguoiDung (
+    MaNguoiDung INT IDENTITY(1,1) PRIMARY KEY,
+    HoTen NVARCHAR(200) NOT NULL,
+    Email NVARCHAR(255) NOT NULL UNIQUE,
+    CONSTRAINT CK_NguoiDung_HoTen CHECK (HoTen <> ''),
+    CONSTRAINT CK_NguoiDung_Email CHECK (Email LIKE '%@%.%')
+);
+
+-- Bảng LichSuCuTru (History Log)
+CREATE TABLE LichSuCuTru (
+    MaLichSu INT IDENTITY(1,1) PRIMARY KEY,
+    MaNguoiDung INT NOT NULL,
+    ThuNgay DATE NOT NULL,
+    UocTinh DECIMAL(18,2),
+    LyDoThaiHoi NVARCHAR(500),
+    LichSuHoacHang NVARCHAR(MAX),
+    CONSTRAINT FK_LichSuCuTru_NguoiDung FOREIGN KEY (MaNguoiDung) 
+        REFERENCES NguoiDung(MaNguoiDung) ON DELETE CASCADE,
+    CONSTRAINT CK_LichSuCuTru_UocTinh CHECK (UocTinh >= 0)
+);
+
+-- Bảng HaoTatDoan (Discount/Promotion)
+CREATE TABLE HaoTatDoan (
+    MaHaoTatDoan INT IDENTITY(1,1) PRIMARY KEY,
+    MaNguoiDung INT NOT NULL,
+    MaAnhHuong NVARCHAR(50),
+    TenVaiTro NVARCHAR(100),
+    MaNhomMuaSam NVARCHAR(50),
+    ThongBaoThanhVien NVARCHAR(500),
+    HangTapAnhNguyenTheoThietKe NVARCHAR(MAX),
+    CONSTRAINT FK_HaoTatDoan_NguoiDung FOREIGN KEY (MaNguoiDung) 
+        REFERENCES NguoiDung(MaNguoiDung)
+);
+
+-- =============================================
+-- INVENTORY & PRODUCTS (Kho và Sản phẩm)
+-- =============================================
+
+-- Bảng Block (Khối/Kho)
+CREATE TABLE Block (
+    MaBlock INT IDENTITY(1,1) PRIMARY KEY,
+    TenBlock NVARCHAR(200) NOT NULL,
+    SoTang INT,
+    CONSTRAINT CK_Block_SoTang CHECK (SoTang > 0)
+);
+
+-- Bảng Tang (Tầng)
+CREATE TABLE Tang (
+    MaTang INT IDENTITY(1,1) PRIMARY KEY,
+    MaBlock INT NOT NULL,
+    SoTang INT NOT NULL,
+    CONSTRAINT FK_Tang_Block FOREIGN KEY (MaBlock) 
+        REFERENCES Block(MaBlock) ON DELETE CASCADE,
+    CONSTRAINT CK_Tang_SoTang CHECK (SoTang > 0)
+);
+
+-- Bảng CanHo (Căn hộ/Sản phẩm)
+CREATE TABLE CanHo (
+    MaCanHo INT IDENTITY(1,1) PRIMARY KEY,
+    MaTang INT NOT NULL,
+    SoCanHo NVARCHAR(50) NOT NULL,
+    MaTrangThai INT,
+    MaThanhPhanThanhChung NVARCHAR(100),
+    CONSTRAINT FK_CanHo_Tang FOREIGN KEY (MaTang) 
+        REFERENCES Tang(MaTang),
+    CONSTRAINT UQ_CanHo_SoCanHo UNIQUE (MaTang, SoCanHo)
+);
+
+-- Bảng NopDong (Payment/Transaction)
+CREATE TABLE NopDong (
+    MaNhapDong INT IDENTITY(1,1) PRIMARY KEY,
+    MaCanHo INT NOT NULL,
+    LoaiNhapDong NVARCHAR(100),
+    NgayBatDau DATE,
+    NgayKetThuc DATE,
+    TienThuThuong DECIMAL(18,2),
+    MaTuyenThai INT,
+    MaTrangThaiThanhChung NVARCHAR(100),
+    CONSTRAINT FK_NopDong_CanHo FOREIGN KEY (MaCanHo) 
+        REFERENCES CanHo(MaCanHo),
+    CONSTRAINT CK_NopDong_NgayKetThuc CHECK (NgayKetThuc >= NgayBatDau),
+    CONSTRAINT CK_NopDong_TienThuThuong CHECK (TienThuThuong >= 0)
+);
+
+-- =============================================
+-- SUPPORT MODULE (Audit & Notifications)
+-- =============================================
+
+-- Bảng AuditLog (Nhật ký Kiểm toán)
+CREATE TABLE AuditLog (
+    MaAuditId INT IDENTITY(1,1) PRIMARY KEY,
+    EntryType NVARCHAR(50) NOT NULL,
+    EntryId INT,
+    TableName NVARCHAR(100),
+    ActionType NVARCHAR(50),
+    NewValue NVARCHAR(MAX),
+    NguyenVaoNoi INT,
+    ThaoTacBoi INT,
+    ThoiDian DATETIME DEFAULT GETDATE(),
+    RequestId NVARCHAR(100),
+    CONSTRAINT FK_AuditLog_NguoiDung FOREIGN KEY (NguyenVaoNoi) 
+        REFERENCES NguoiDung(MaNguoiDung)
+);
+
+-- Bảng ThongBao (Notifications)
+CREATE TABLE ThongBao (
+    MaThongBao INT IDENTITY(1,1) PRIMARY KEY,
+    MaNguoiDung INT NOT NULL,
+    MaThongBaoGui INT,
+    HaThoiDate DATETIME,
+    MaTemplate NVARCHAR(50),
+    NoiDung NVARCHAR(MAX),
+    NgayGui DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_ThongBao_NguoiDung FOREIGN KEY (MaNguoiDung) 
+        REFERENCES NguoiDung(MaNguoiDung)
+);
+
+-- Bảng ThongBaoTemplate (Notification Templates)
+CREATE TABLE ThongBaoTemplate (
+    MaTemplate INT IDENTITY(1,1) PRIMARY KEY,
+    Code NVARCHAR(50) NOT NULL UNIQUE,
+    TenMau NVARCHAR(200),
+    ThieuDeTo NVARCHAR(500),
+    NoiDungTot NVARCHAR(MAX)
+);
+
+-- Bảng ThietBiNguoiDung (User Devices)
+CREATE TABLE ThietBiNguoiDung (
+    MaThietBi INT IDENTITY(1,1) PRIMARY KEY,
+    MaNguoiDung INT NOT NULL,
+    DeviceToken NVARCHAR(500),
+    NenDIDYIOS NVARCHAR(50),
+    LastSeen DATETIME,
+    CONSTRAINT FK_ThietBiNguoiDung_NguoiDung FOREIGN KEY (MaNguoiDung) 
+        REFERENCES NguoiDung(MaNguoiDung) ON DELETE CASCADE
+);
+
+-- =============================================
+-- PAYMENT & TRANSACTION MODULE
+-- =============================================
+
+-- Bảng TrangThai (Status)
+CREATE TABLE TrangThai (
+    MaTrangThai INT IDENTITY(1,1) PRIMARY KEY,
+    DenTuong NVARCHAR(100),
+    CanHoNhapDongDaBanDonViCauLacHDHienV NVARCHAR(200),
+    MauSac NVARCHAR(50),
+    MoTa NVARCHAR(500)
+);
+
+-- Bảng YeuCau (Request)
+CREATE TABLE YeuCau (
+    MaYeuCau INT IDENTITY(1,1) PRIMARY KEY,
+    MaNguoiDung INT NOT NULL,
+    MaCanHo INT,
+    Loai NVARCHAR(100),
+    SoTienThaiHoi DECIMAL(18,2),
+    NgayTao DATETIME DEFAULT GETDATE(),
+    TrangThaiThanhChung NVARCHAR(100),
+    CONSTRAINT FK_YeuCau_NguoiDung FOREIGN KEY (MaNguoiDung) 
+        REFERENCES NguoiDung(MaNguoiDung),
+    CONSTRAINT FK_YeuCau_CanHo FOREIGN KEY (MaCanHo) 
+        REFERENCES CanHo(MaCanHo),
+    CONSTRAINT CK_YeuCau_SoTienThaiHoi CHECK (SoTienThaiHoi >= 0)
+);
+
+-- Bảng YeuCauLog (Request Log)
+CREATE TABLE YeuCauLog (
+    MaLog INT IDENTITY(1,1) PRIMARY KEY,
+    MaTrangThai INT,
+    NguyenVanVai INT,
+    ThoiGian DATETIME DEFAULT GETDATE(),
+    YeuCauOu NVARCHAR(MAX),
+    CONSTRAINT FK_YeuCauLog_NguoiDung FOREIGN KEY (NguyenVanVai) 
+        REFERENCES NguoiDung(MaNguoiDung)
+);
+
+-- Bảng LichHen (Appointments)
+CREATE TABLE LichHen (
+    MaLichHen INT IDENTITY(1,1) PRIMARY KEY,
+    MaXacCau INT,
+    ThoiGian DATETIME,
+    MaNguoiDung INT,
+    LichHienTrangThaiPhaThuong NVARCHAR(100),
+    CONSTRAINT FK_LichHen_NguoiDung FOREIGN KEY (MaNguoiDung) 
+        REFERENCES NguoiDung(MaNguoiDung)
+);
+
+-- =============================================
+-- BILLING MODULE
+-- =============================================
+
+-- Bảng ChiSoDichVu (Service Meters)
+CREATE TABLE ChiSoDichVu (
+    MaChiSo INT IDENTITY(1,1) PRIMARY KEY,
+    MaCanHo INT NOT NULL,
+    MaDichVu INT,
+    KyThang DATE,
+    ChiSoCu DECIMAL(12,2),
+    ChiSoMoi DECIMAL(12,2),
+    CONSTRAINT FK_ChiSoDichVu_CanHo FOREIGN KEY (MaCanHo) 
+        REFERENCES CanHo(MaCanHo),
+    CONSTRAINT CK_ChiSoDichVu_ChiSo CHECK (ChiSoMoi >= ChiSoCu)
+);
+
+-- Bảng DichVu (Services)
+CREATE TABLE DichVu (
+    MaDichVu INT IDENTITY(1,1) PRIMARY KEY,
+    TenDichVu NVARCHAR(200) NOT NULL,
+    KieuTinh NVARCHAR(50),
+    DonViMacDinh NVARCHAR(50),
+    CONSTRAINT CK_DichVu_KieuTinh CHECK (KieuTinh IN ('FIXED', 'METERED'))
+);
+
+-- Bảng BangGia (Price List)
+CREATE TABLE BangGia (
+    MaBangGia INT IDENTITY(1,1) PRIMARY KEY,
+    MaDichVu INT NOT NULL,
+    HieuLucTu DATE,
+    HieuLucDen DATE,
+    DonGiaBien DECIMAL(18,2),
+    CONSTRAINT FK_BangGia_DichVu FOREIGN KEY (MaDichVu) 
+        REFERENCES DichVu(MaDichVu),
+    CONSTRAINT CK_BangGia_HieuLuc CHECK (HieuLucDen >= HieuLucTu),
+    CONSTRAINT CK_BangGia_DonGia CHECK (DonGiaBien >= 0)
+);
+
+-- Bảng HoaDon (Invoices)
+CREATE TABLE HoaDon (
+    MaHoaDon INT IDENTITY(1,1) PRIMARY KEY,
+    MaCanHo INT NOT NULL,
+    KyThang DATE,
+    NgayPhatHanh DATE,
+    NgayDenHan DATE,
+    TongTien DECIMAL(18,2),
+    CONSTRAINT FK_HoaDon_CanHo FOREIGN KEY (MaCanHo) 
+        REFERENCES CanHo(MaCanHo),
+    CONSTRAINT CK_HoaDon_TongTien CHECK (TongTien >= 0)
+);
+
+-- Bảng ChiTietHoaDon (Invoice Details)
+CREATE TABLE ChiTietHoaDon (
+    MaCT INT IDENTITY(1,1) PRIMARY KEY,
+    MaHoaDon INT NOT NULL,
+    MaDichVu INT NOT NULL,
+    ThanhTien DECIMAL(18,2),
+    MaChiSo INT,
+    CONSTRAINT FK_ChiTietHoaDon_HoaDon FOREIGN KEY (MaHoaDon) 
+        REFERENCES HoaDon(MaHoaDon) ON DELETE CASCADE,
+    CONSTRAINT FK_ChiTietHoaDon_DichVu FOREIGN KEY (MaDichVu) 
+        REFERENCES DichVu(MaDichVu),
+    CONSTRAINT CK_ChiTietHoaDon_ThanhTien CHECK (ThanhTien >= 0)
+);
+
+-- Bảng ThanhToan (Payments)
+CREATE TABLE ThanhToan (
+    MaThanhToan INT IDENTITY(1,1) PRIMARY KEY,
+    MaHoaDon INT NOT NULL,
+    MaDichVu INT,
+    NgayThanhToan DATE,
+    ThanhTien DECIMAL(18,2),
+    MaChiSo INT,
+    CONSTRAINT FK_ThanhToan_HoaDon FOREIGN KEY (MaHoaDon) 
+        REFERENCES HoaDon(MaHoaDon),
+    CONSTRAINT CK_ThanhToan_ThanhTien CHECK (ThanhTien >= 0)
+);
+
+GO
+
+-- =============================================
+-- INDEXES (Tối ưu hóa hiệu suất)
+-- =============================================
+
+-- Indexes cho bảng NguoiDung
+CREATE NONCLUSTERED INDEX IX_NguoiDung_Email ON NguoiDung(Email);
+
+-- Indexes cho bảng LichSuCuTru
+CREATE NONCLUSTERED INDEX IX_LichSuCuTru_MaNguoiDung ON LichSuCuTru(MaNguoiDung);
+CREATE NONCLUSTERED INDEX IX_LichSuCuTru_ThuNgay ON LichSuCuTru(ThuNgay);
+
+-- Indexes cho bảng CanHo
+CREATE NONCLUSTERED INDEX IX_CanHo_MaTang ON CanHo(MaTang);
+CREATE NONCLUSTERED INDEX IX_CanHo_MaTrangThai ON CanHo(MaTrangThai);
+
+-- Indexes cho bảng NopDong
+CREATE NONCLUSTERED INDEX IX_NopDong_MaCanHo ON NopDong(MaCanHo);
+CREATE NONCLUSTERED INDEX IX_NopDong_NgayBatDau ON NopDong(NgayBatDau);
+
+-- Indexes cho bảng HoaDon
+CREATE NONCLUSTERED INDEX IX_HoaDon_MaCanHo ON HoaDon(MaCanHo);
+CREATE NONCLUSTERED INDEX IX_HoaDon_KyThang ON HoaDon(KyThang);
+CREATE NONCLUSTERED INDEX IX_HoaDon_NgayDenHan ON HoaDon(NgayDenHan);
+
+-- Indexes cho bảng AuditLog
+CREATE NONCLUSTERED INDEX IX_AuditLog_ThoiDian ON AuditLog(ThoiDian);
+CREATE NONCLUSTERED INDEX IX_AuditLog_TableName ON AuditLog(TableName);
+
+GO
+
+-- =============================================
+-- SAMPLE DATA (Dữ liệu mẫu)
+-- =============================================
+
+-- Insert VaiTro
+INSERT INTO VaiTro (TenVaiTro) VALUES 
+(N'Admin'),
+(N'Quản lý'),
+(N'Nhân viên'),
+(N'Khách hàng');
+
+-- Insert NguoiDung
+INSERT INTO NguoiDung (HoTen, Email) VALUES 
+(N'Nguyễn Văn A', 'nguyenvana@example.com'),
+(N'Trần Thị B', 'tranthib@example.com'),
+(N'Lê Văn C', 'levanc@example.com');
+
+-- Insert Block
+INSERT INTO Block (TenBlock, SoTang) VALUES 
+(N'Block A', 10),
+(N'Block B', 15),
+(N'Block C', 20);
+
+-- Insert DichVu
+INSERT INTO DichVu (TenDichVu, KieuTinh, DonViMacDinh) VALUES 
+(N'Điện', 'METERED', N'kWh'),
+(N'Nước', 'METERED', N'm³'),
+(N'Phí quản lý', 'FIXED', N'tháng'),
+(N'Internet', 'FIXED', N'tháng');
+
+GO
+
+PRINT 'Database created successfully!';
+PRINT 'Total tables created: 25';
+PRINT 'Indexes created for optimization';
+PRINT 'Sample data inserted';
+GO
+/* =========================
+   NHÂN SỰ KỸ THUẬT
+   ========================= */
+
+-- 1. NhanVien (1-1 với NguoiDung)
+IF OBJECT_ID('dbo.NhanVien','U') IS NULL
+CREATE TABLE dbo.NhanVien (
+    MaNhanVien     INT IDENTITY(1,1) PRIMARY KEY,
+    MaNguoiDung    INT NOT NULL UNIQUE,
+    ChucVu         NVARCHAR(100) NOT NULL DEFAULT(N'Kỹ thuật'),
+    TrangThai      NVARCHAR(50)  NOT NULL DEFAULT(N'Active'),
+    CONSTRAINT FK_NhanVien_NguoiDung
+      FOREIGN KEY (MaNguoiDung) REFERENCES dbo.NguoiDung(MaNguoiDung)
+        ON DELETE CASCADE
+);
+GO
+
+-- 2. PhanCong (phân công công việc theo khu vực)
+IF OBJECT_ID('dbo.PhanCong','U') IS NULL
+CREATE TABLE dbo.PhanCong (
+    MaPhanCong     INT IDENTITY(1,1) PRIMARY KEY,
+    MaNhanVien     INT NOT NULL,
+    MaKhuVucChung  INT NOT NULL,
+    Ngay           DATE NOT NULL,
+    Ca             NVARCHAR(50) NOT NULL, -- Ví dụ: Sáng/Chiều/Đêm
+    NoiDung        NVARCHAR(500) NULL,
+    TrangThai      NVARCHAR(50)  NOT NULL DEFAULT(N'Đang phân công'),
+    CONSTRAINT FK_PhanCong_NhanVien
+      FOREIGN KEY (MaNhanVien) REFERENCES dbo.NhanVien(MaNhanVien)
+        ON DELETE CASCADE,
+    -- FK MaKhuVucChung -> KhuVucChung sẽ được thêm sau khi tạo bảng KhuVucChung
+);
+GO
+
+-- 3. LichTruc (lịch trực nhân sự)
+IF OBJECT_ID('dbo.LichTruc','U') IS NULL
+CREATE TABLE dbo.LichTruc (
+    MaLichTruc     INT IDENTITY(1,1) PRIMARY KEY,
+    MaNhanVien     INT NOT NULL,
+    Ngay           DATE NOT NULL,
+    Ca             NVARCHAR(50) NOT NULL,
+    GhiChu         NVARCHAR(300) NULL,
+    CONSTRAINT UQ_LichTruc_Unique UNIQUE (MaNhanVien, Ngay, Ca),
+    CONSTRAINT FK_LichTruc_NhanVien
+      FOREIGN KEY (MaNhanVien) REFERENCES dbo.NhanVien(MaNhanVien)
+        ON DELETE CASCADE
+);
+GO
+
+-- Index gợi ý
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_PhanCong_MaNhanVien' AND object_id=OBJECT_ID('dbo.PhanCong'))
+CREATE NONCLUSTERED INDEX IX_PhanCong_MaNhanVien ON dbo.PhanCong(MaNhanVien);
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_LichTruc_MaNhanVien' AND object_id=OBJECT_ID('dbo.LichTruc'))
+CREATE NONCLUSTERED INDEX IX_LichTruc_MaNhanVien ON dbo.LichTruc(MaNhanVien);
+GO
+/* =========================
+   THÔNG BÁO - NGƯỜI DÙNG
+   ========================= */
+
+IF OBJECT_ID('dbo.ThongBaoNguoiDung','U') IS NULL
+CREATE TABLE dbo.ThongBaoNguoiDung (
+    MaTB_ND       INT IDENTITY(1,1) PRIMARY KEY,
+    MaThongBao    INT NOT NULL,
+    MaNguoiDung   INT NOT NULL,
+    ThoiGianGui   DATETIME NOT NULL DEFAULT(GETDATE()),
+    DaDoc         BIT NOT NULL DEFAULT(0),
+    CONSTRAINT FK_TBND_ThongBao
+      FOREIGN KEY (MaThongBao) REFERENCES dbo.ThongBao(MaThongBao)
+        ON DELETE CASCADE,
+    CONSTRAINT FK_TBND_NguoiDung
+      FOREIGN KEY (MaNguoiDung) REFERENCES dbo.NguoiDung(MaNguoiDung)
+        ON DELETE CASCADE,
+    CONSTRAINT UQ_TBND UNIQUE (MaThongBao, MaNguoiDung)
+);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_TBND_MaNguoiDung' AND object_id=OBJECT_ID('dbo.ThongBaoNguoiDung'))
+CREATE NONCLUSTERED INDEX IX_TBND_MaNguoiDung ON dbo.ThongBaoNguoiDung(MaNguoiDung);
+GO
+IF COL_LENGTH('dbo.YeuCauLog','MaYeuCau') IS NULL
+  ALTER TABLE dbo.YeuCauLog ADD MaYeuCau INT NULL;
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_YeuCauLog_YeuCau')
+  ALTER TABLE dbo.YeuCauLog
+    ADD CONSTRAINT FK_YeuCauLog_YeuCau
+    FOREIGN KEY (MaYeuCau) REFERENCES dbo.YeuCau(MaYeuCau)
+      ON DELETE CASCADE;
+GO
+/* ====== CLEANUP an toàn (nếu bạn đã chạy dở) ====== */
+IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_PhanCong_KhuVucChung')
+  ALTER TABLE dbo.PhanCong DROP CONSTRAINT FK_PhanCong_KhuVucChung;
+IF OBJECT_ID('dbo.KiemTraKhuVuc','U') IS NOT NULL DROP TABLE dbo.KiemTraKhuVuc;
+IF OBJECT_ID('dbo.SuCo','U') IS NOT NULL DROP TABLE dbo.SuCo;
+GO
+
+/* ====== 1) KhuVucChung ====== */
+IF OBJECT_ID('dbo.KhuVucChung','U') IS NULL
+CREATE TABLE dbo.KhuVucChung (
+    MaKhuVucChung  INT IDENTITY(1,1) PRIMARY KEY,
+    MaBlock        INT NOT NULL,
+    Ten            NVARCHAR(200) NOT NULL,
+    Loai           NVARCHAR(100) NOT NULL,
+    MoTa           NVARCHAR(500) NULL,
+    Tang           INT NULL,
+    TrangThai      NVARCHAR(50) NOT NULL DEFAULT(N'Hoạt động'),
+    CONSTRAINT FK_KhuVucChung_Block
+      FOREIGN KEY (MaBlock) REFERENCES dbo.Block(MaBlock)
+        ON DELETE CASCADE
+);
+GO
+
+/* ====== 2) KiemTraKhuVuc (MaNhanVien phải cho phép NULL để dùng SET NULL) ====== */
+CREATE TABLE dbo.KiemTraKhuVuc (
+    MaKiemTraKVC   INT IDENTITY(1,1) PRIMARY KEY,
+    MaKhuVucChung  INT NOT NULL,
+    MaNhanVien     INT NULL,                 -- <== cho phép NULL
+    ThoiGian       DATETIME NOT NULL DEFAULT(GETDATE()),
+    DanhGia        NVARCHAR(100) NOT NULL,
+    GhiChu         NVARCHAR(MAX) NULL,
+    CONSTRAINT FK_KiemTraKVC_KhuVucChung
+      FOREIGN KEY (MaKhuVucChung) REFERENCES dbo.KhuVucChung(MaKhuVucChung)
+        ON DELETE CASCADE,
+    CONSTRAINT FK_KiemTraKVC_NhanVien
+      FOREIGN KEY (MaNhanVien) REFERENCES dbo.NhanVien(MaNhanVien)
+        ON DELETE SET NULL
+);
+GO
+
+/* ====== 3) SuCo ====== */
+CREATE TABLE dbo.SuCo (
+    MaSuCo             INT IDENTITY(1,1) PRIMARY KEY,
+    MaKhuVucChung      INT NOT NULL,
+    MucDo              NVARCHAR(50)  NOT NULL,
+    MoTa               NVARCHAR(MAX) NOT NULL,
+    TrangThai          NVARCHAR(50)  NOT NULL DEFAULT(N'Mới'),
+    ThoiGianPhatHien   DATETIME NOT NULL DEFAULT(GETDATE()),
+    ThoiGianXuLy       DATETIME NULL,
+    MaNhanVienXuLy     INT NULL,            -- có thể NULL
+    CONSTRAINT FK_SuCo_KhuVucChung
+      FOREIGN KEY (MaKhuVucChung) REFERENCES dbo.KhuVucChung(MaKhuVucChung)
+        ON DELETE CASCADE,
+    CONSTRAINT FK_SuCo_NhanVienXuLy
+      FOREIGN KEY (MaNhanVienXuLy) REFERENCES dbo.NhanVien(MaNhanVien)
+        ON DELETE SET NULL
+);
+GO
+
+/* ====== 4) Bổ sung FK còn thiếu (PhanCong -> KhuVucChung) ====== */
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_PhanCong_KhuVucChung')
+ALTER TABLE dbo.PhanCong
+  ADD CONSTRAINT FK_PhanCong_KhuVucChung
+  FOREIGN KEY (MaKhuVucChung) REFERENCES dbo.KhuVucChung(MaKhuVucChung)
+    ON DELETE CASCADE;
+GO
+
+/* ====== 5) Index gợi ý ====== */
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_KiemTraKVC_MaKhuVucChung' AND object_id=OBJECT_ID('dbo.KiemTraKhuVuc'))
+  CREATE NONCLUSTERED INDEX IX_KiemTraKVC_MaKhuVucChung ON dbo.KiemTraKhuVuc(MaKhuVucChung);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_SuCo_MaKhuVucChung' AND object_id=OBJECT_ID('dbo.SuCo'))
+  CREATE NONCLUSTERED INDEX IX_SuCo_MaKhuVucChung ON dbo.SuCo(MaKhuVucChung);
+GO

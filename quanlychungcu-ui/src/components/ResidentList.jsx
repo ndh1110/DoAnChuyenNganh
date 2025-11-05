@@ -1,90 +1,89 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-/**
- * Component hiển thị danh sách Cư dân (Người dùng).
- * Gọi API: GET /api/nguoidung
- */
-function ResidentList() {
-  // 1. Khởi tạo State
-  const [residents, setResidents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+// Định nghĩa URL cơ sở của API backend
+const API_BASE_URL = 'http://localhost:5000/api';
 
-  // 2. Sử dụng useEffect để gọi API
-  useEffect(() => {
-    const fetchResidents = async () => {
-      try {
-        // Gọi API 'nguoidung'
-        const response = await axios.get('/api/nguoidung');
-        
-        // Cập nhật state với dữ liệu người dùng
-        setResidents(response.data);
-      } catch (err) {
-        setError(err.message);
-        console.error("Có lỗi xảy ra khi fetch residents:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+const ResidentList = () => {
+    // 1. Khai báo state để lưu trữ danh sách Cư dân và trạng thái tải dữ liệu
+    const [residents, setResidents] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    fetchResidents();
-  }, []); // Chỉ chạy 1 lần
+    // 2. Sử dụng useEffect để gọi API khi component được render
+    useEffect(() => {
+        const fetchResidents = async () => {
+            try {
+                // Gọi API GET /api/nguoidung
+                const response = await axios.get(`${API_BASE_URL}/nguoidung`);
+                
+                // Cập nhật state với dữ liệu cư dân (NguoiDung) nhận được
+                setResidents(response.data); 
+                
+                // Đánh dấu đã tải xong
+                setLoading(false); 
+            } catch (err) {
+                console.error("Lỗi khi tải danh sách Cư dân:", err);
+                setError(err.message);
+                setLoading(false);
+            }
+        };
 
-  // 3. Render các trạng thái
-  if (loading) {
-    return <div>Đang tải danh sách cư dân...</div>;
-  }
+        fetchResidents();
+    }, []); 
 
-  if (error) {
+    // 3. Hiển thị trạng thái tải và lỗi
+    if (loading) {
+        return <div className="p-6 text-center text-blue-500">Đang tải danh sách Cư dân...</div>;
+    }
+
+    if (error) {
+        return <div className="p-6 text-red-600 text-center font-semibold">
+            ❌ Lỗi kết nối API: {error}. Vui lòng kiểm tra Server BE (http://localhost:5000).
+        </div>;
+    }
+
+    // 4. Hiển thị danh sách Cư dân dưới dạng Bảng
     return (
-      <div>
-        <p style={{ color: 'red' }}>Lỗi khi tải dữ liệu: {error}</p>
-      </div>
+        <div className="resident-list mt-6 overflow-x-auto">
+            <h2 className="text-xl font-bold mb-4">Tổng số Cư dân: {residents.length}</h2>
+            
+            <table className="min-w-full bg-white border border-gray-200">
+                <thead className="bg-gray-100">
+                    <tr>
+                        <th className="py-2 px-4 border-b text-left">Mã ND</th>
+                        <th className="py-2 px-4 border-b text-left">Họ Tên</th>
+                        <th className="py-2 px-4 border-b text-left">Email</th>
+                        <th className="py-2 px-4 border-b text-left">SĐT</th>
+                        <th className="py-2 px-4 border-b text-left">Vai Trò</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {/* Lặp qua danh sách cư dân để hiển thị */}
+                    {residents.map((resident) => (
+                        <tr key={resident.MaNguoiDung} className="hover:bg-gray-50">
+                            <td className="py-2 px-4 border-b">{resident.MaNguoiDung}</td>
+                            <td className="py-2 px-4 border-b font-medium">{resident.HoTen}</td>
+                            <td className="py-2 px-4 border-b text-sm">{resident.Email}</td>
+                            <td className="py-2 px-4 border-b">{resident.SoDienThoai || 'N/A'}</td>
+                            {/* Giả định trường VaiTro (từ file Cập nhật và sửa lần 2: N'Resident') được trả về */}
+                            <td className="py-2 px-4 border-b text-sm">
+                                {resident.VaiTro || 'Resident/User'}
+                            </td> 
+                        </tr>
+                    ))}
+                    
+                    {residents.length === 0 && (
+                        <tr>
+                            <td colSpan="5" className="py-4 text-center text-gray-500">
+                                🔑 Chưa có cư dân nào trong hệ thống.
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
     );
-  }
-
-  // 4. Render bảng dữ liệu
-  return (
-    <div style={{ padding: '20px', fontFamily: 'Arial', marginTop: '30px' }}>
-      <h2>Danh Sách Cư Dân</h2>
-      
-      {/* Hiển thị dạng bảng cho dễ nhìn */}
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ borderBottom: '2px solid white' }}>
-            <th style={{ padding: '8px', textAlign: 'left' }}>Mã ND</th>
-            <th style={{ padding: '8px', textAlign: 'left' }}>Họ Tên</th>
-            <th style={{ padding: '8px', textAlign: 'left' }}>Email</th>
-            <th style={{ padding: '8px', textAlign: 'left' }}>Số Điện Thoại</th>
-          </tr>
-        </thead>
-        <tbody>
-          {residents.length === 0 ? (
-            <tr>
-              <td colSpan="4" style={{ padding: '8px', textAlign: 'center' }}>
-                Không có dữ liệu cư dân.
-              </td>
-            </tr>
-          ) : (
-            residents.map((resident) => (
-              <tr key={resident.MaNguoiDung} style={{ borderBottom: '1px solid #555' }}>
-                <td style={{ padding: '8px' }}>{resident.MaNguoiDung}</td>
-                <td style={{ padding: '8px' }}>{resident.HoTen}</td>
-                <td style={{ padding: '8px' }}>{resident.Email}</td>
-                {/* Hiển thị SĐT, dữ liệu này có từ file "Cập nhật và sửa.txt"
-                  Nếu là NULL, hiển thị "Chưa cập nhật"
-                */}
-                <td style={{ padding: '8px' }}>
-                  {resident.SoDienThoai ? resident.SoDienThoai : 'Chưa cập nhật'}
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+};
 
 export default ResidentList;

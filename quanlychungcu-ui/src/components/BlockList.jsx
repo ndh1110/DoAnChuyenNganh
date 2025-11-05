@@ -1,84 +1,68 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios'; // Import axios
+import axios from 'axios';
 
-/**
- * Component hiển thị danh sách các Block.
- * Gọi API: GET /api/block
- */
-function BlockList() {
-  // 1. Khởi tạo State
-  const [blocks, setBlocks] = useState([]); // State lưu mảng danh sách block
-  const [loading, setLoading] = useState(true); // State cho trạng thái tải dữ liệu
-  const [error, setError] = useState(null); // State lưu lỗi (nếu có)
+// Định nghĩa URL cơ sở của API backend của bạn
+const API_BASE_URL = 'http://localhost:5000/api';
 
-  // 2. Sử dụng useEffect để gọi API một lần khi component render
-  useEffect(() => {
-    // Định nghĩa hàm async để lấy dữ liệu
-    const fetchBlocks = async () => {
-      try {
-        // 3. Gọi API bằng axios
-        // Nhờ có proxy trong vite.config.js, chúng ta chỉ cần gọi '/api/block'
-        // Vite sẽ tự động chuyển nó thành 'http://localhost:5000/api/block'
-        const response = await axios.get('/api/block');
+const BlockList = () => {
+    // 1. Khai báo state để lưu trữ danh sách Block và trạng thái tải dữ liệu
+    const [blocks, setBlocks] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-        // 4. Cập nhật state với dữ liệu nhận được
-        setBlocks(response.data);
+    // 2. Sử dụng useEffect để gọi API khi component được render lần đầu
+    useEffect(() => {
+        const fetchBlocks = async () => {
+            try {
+                // Gọi API GET /api/block
+                const response = await axios.get(`${API_BASE_URL}/block`);
+                
+                // Cập nhật state với dữ liệu Block nhận được
+                setBlocks(response.data); 
+                
+                // Đánh dấu đã tải xong
+                setLoading(false); 
+            } catch (err) {
+                console.error("Lỗi khi tải danh sách Block:", err);
+                // Cập nhật state lỗi và đánh dấu đã tải xong
+                setError(err.message);
+                setLoading(false);
+            }
+        };
 
-      } catch (err) {
-        // 5. Xử lý lỗi nếu gọi API thất bại
-        setError(err.message);
-        console.error("Có lỗi xảy ra khi fetch blocks:", err);
-      } finally {
-        // 6. Dù thành công hay lỗi, cũng dừng trạng thái loading
-        setLoading(false);
-      }
-    };
+        fetchBlocks();
+    }, []); // Mảng rỗng đảm bảo useEffect chỉ chạy 1 lần sau render đầu tiên
 
-    // 7. Gọi hàm
-    fetchBlocks();
+    // 3. Hiển thị thông báo tải và lỗi
+    if (loading) {
+        return <div className="p-4 text-center">Đang tải danh sách Block...</div>;
+    }
 
-  }, []); // Mảng rỗng [] nghĩa là useEffect này chỉ chạy 1 LẦN DUY NHẤT
+    if (error) {
+        return <div className="p-4 text-red-500 text-center">Lỗi: {error}. Vui lòng kiểm tra Server BE.</div>;
+    }
 
-  // 8. Render giao diện dựa trên các state
-  
-  // Trạng thái đang tải
-  if (loading) {
-    return <div>Đang tải dữ liệu Block...</div>;
-  }
-
-  // Trạng thái lỗi
-  if (error) {
+    // 4. Hiển thị danh sách Block
     return (
-      <div>
-        <p style={{ color: 'red' }}>Lỗi khi tải dữ liệu: {error}</p>
-        <p><i>(Hãy đảm bảo server Backend (quanlychungcu-api) của bạn đang chạy ở cổng 5000)</i></p>
-      </div>
+        <div className="container mx-auto p-4">
+            <h2 className="text-2xl font-bold mb-4">Danh sách Block</h2>
+            
+            <ul className="list-disc pl-5">
+                {/* Kiểm tra và hiển thị danh sách tên Block */}
+                {blocks.length > 0 ? (
+                    blocks.map((block) => (
+                        <li key={block.MaBlock} className="py-1">
+                            {/* Dữ liệu lấy từ API có các trường như MaBlock, TenBlock, SoTang, v.v. */}
+                            <strong>{block.TenBlock}</strong> (Số tầng: {block.SoTang || 'N/A'})
+                        </li>
+                    ))
+                ) : (
+                    <li className="text-gray-500">Không tìm thấy Block nào.</li>
+                )}
+            </ul>
+            <p className="mt-4 text-sm text-gray-600">Tổng cộng: {blocks.length} Block</p>
+        </div>
     );
-  }
-
-  // Trạng thái thành công
-  return (
-    <div style={{ padding: '20px', fontFamily: 'Arial' }}>
-      <h2>Danh Sách Các Block Chung Cư</h2>
-      {/* Kiểm tra nếu không có block nào */}
-      {blocks.length === 0 ? (
-        <p>Không có block nào trong cơ sở dữ liệu.</p>
-      ) : (
-        <ul style={{ listStyleType: 'none', padding: 0 }}>
-          {/* 9. Dùng hàm .map() để lặp qua mảng blocks và hiển thị */}
-          {blocks.map((block) => (
-            <li 
-              key={block.MaBlock} // 'key' là bắt buộc khi dùng .map()
-              style={{ padding: '10px', border: '1px solid #ccc', marginBottom: '5px' }}
-            >
-              {/* Hiển thị TenBlock như yêu cầu */}
-              {block.TenBlock}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
+};
 
 export default BlockList;

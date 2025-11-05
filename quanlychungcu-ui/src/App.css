@@ -40,3 +40,8 @@
 .read-the-docs {
   color: #888;
 }
+/* src/App.css */
+.App { max-width: 1100px; margin: 0 auto; padding: 24px; }
+.App-header h1 { font-size: 48px; margin-bottom: 24px; }
+h2 { text-align: center; margin: 24px 0 16px; }
+ul li, table { font-size: 16px; }

@@ -19,7 +19,7 @@ const ResidentList = ({ residents, onViewDetails, onEdit, onDelete }) => {
         <tbody>
           {/* Lặp qua danh sách cư dân được truyền vào qua props */}
           {residents.map((resident) => (
-            <tr key={resident.MaNogDung} className="hover:bg-gray-50">
+            <tr key={resident.MaNguoiDung} className="hover:bg-gray-50">
               <td className="py-2 px-4 border-b">{resident.MaNguoiDung}</td>
               <td className="py-2 px-4 border-b font-medium">{resident.HoTen}</td>
               <td className="py-2 px-4 border-b text-sm">{resident.Email}</td>

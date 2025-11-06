@@ -18,3 +18,20 @@ export const createRequestLog = (data) => api.post('/yeucaulog', data);
 // export const getAppointmentsByRequestId = (id) => api.get(`/lichhen/request/${id}`);
 export const createAppointment = (data) => api.post('/lichhen', data);
 export const updateAppointment = (id, data) => api.put(`/lichhen/${id}`, data);
+export const deleteAppointment = (id) => api.delete(`/lichhen/${id}`);
+// =============================================
+// ⭐ PHẦN SỬA: Gom tất cả vào 1 object để export
+// =============================================
+export const requestService = {
+  getAllRequests,
+  getRequestById,
+    createRequest,
+    updateRequest,
+    deleteRequest,
+    // getLogsByRequestId, // Nếu có API GET log
+    createRequestLog,
+    // getAppointmentsByRequestId, // Nếu có API GET lịch hẹn
+    createAppointment,
+    updateAppointment,
+    deleteAppointment,
+};

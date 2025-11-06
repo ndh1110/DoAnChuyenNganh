@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 // 1. Import Service và Components
-import * as residentService from '../services/residentService';
+import {residentService} from '../services/residentService';
 import ResidentList from '../components/ResidentList.jsx';
 import ResidentForm from '../components/ResidentForm.jsx'; 
 // --- THAY ĐỔI 1: Import component chi tiết ---
@@ -27,7 +27,7 @@ const ResidentsPage = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await residentService.getAllResidents();
+      const response = await residentService.getAll();
       setResidents(response.data);
     } catch (err) {
       console.error("Lỗi khi tải danh sách Cư dân:", err);
@@ -48,7 +48,7 @@ const ResidentsPage = () => {
   const handleDelete = async (id) => {
     if (window.confirm(`Bạn có chắc muốn xóa cư dân (ID: ${id})?`)) {
       try {
-        await residentService.deleteResident(id);
+        await residentService.delete(id);
         fetchResidents(); 
       } catch (err) {
         console.error("Lỗi khi xóa cư dân:", err);
@@ -70,9 +70,9 @@ const ResidentsPage = () => {
   const handleFormSubmit = async (formData) => {
     try {
       if (currentResident) {
-        await residentService.updateResident(currentResident.MaNguoiDung, formData);
+        await residentService.update(currentResident.MaNguoiDung, formData);
       } else {
-        await residentService.createResident(formData);
+        await residentService.create(formData);
       }
       setIsFormOpen(false);
       fetchResidents();
@@ -93,7 +93,7 @@ const ResidentsPage = () => {
     setError(null); // Xóa lỗi cũ (nếu có)
     try {
       // Gọi API lấy chi tiết
-      const response = await residentService.getResidentById(id);
+      const response = await residentService.getById(id);
       setDetailData(response.data);
     } catch (err) {
       console.error("Lỗi khi tải chi tiết cư dân:", err);

@@ -6,7 +6,7 @@ const API_ENDPOINT = '/nguoidung';
 /**
  * Lấy toàn bộ danh sách cư dân
  */
-export const getAllResidents = () => {
+const getAllResidents = () => {
   return api.get(API_ENDPOINT);
 };
 
@@ -14,7 +14,7 @@ export const getAllResidents = () => {
  * Lấy chi tiết một cư dân
  * @param {string} id - Mã người dùng (MaNguoiDung)
  */
-export const getResidentById = (id) => {
+const getResidentById = (id) => {
   return api.get(`${API_ENDPOINT}/${id}`);
 };
 
@@ -22,7 +22,7 @@ export const getResidentById = (id) => {
  * Tạo một cư dân mới
  * @param {object} residentData - Dữ liệu cư dân (ví dụ: { HoTen, Email, SoDienThoai, ... })
  */
-export const createResident = (residentData) => {
+const createResident = (residentData) => {
   return api.post(API_ENDPOINT, residentData);
 };
 
@@ -31,7 +31,7 @@ export const createResident = (residentData) => {
  * @param {string} id - Mã người dùng
  * @param {object} residentData - Dữ liệu cập nhật
  */
-export const updateResident = (id, residentData) => {
+const updateResident = (id, residentData) => {
   return api.put(`${API_ENDPOINT}/${id}`, residentData);
 };
 
@@ -39,6 +39,17 @@ export const updateResident = (id, residentData) => {
  * Xóa một cư dân
  * @param {string} id - Mã người dùng
  */
-export const deleteResident = (id) => {
+const deleteResident = (id) => {
   return api.delete(`${API_ENDPOINT}/${id}`);
+};
+
+// =============================================
+// ⭐ PHẦN SỬA: Gom tất cả vào 1 object để export
+// =============================================
+export const residentService = {
+  getAll: getAllResidents,
+  getById: getResidentById,
+  create: createResident,
+  update: updateResident,
+  delete: deleteResident,
 };

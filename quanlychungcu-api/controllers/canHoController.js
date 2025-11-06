@@ -2,7 +2,7 @@
 const mssql = require('mssql');
 
 /**
- * GET /api/canho - Lấy tất cả căn hộ (JOIN với Tầng và Block)
+ * GET /api/canho - Lấy tất cả căn hộ (JOIN Tầng, Block, và Trạng Thái)
  */
 const getAllCanHo = async (req, res) => {
     try {
@@ -11,10 +11,12 @@ const getAllCanHo = async (req, res) => {
                 SELECT 
                     ch.MaCanHo, ch.SoCanHo,
                     t.MaTang, t.SoTang,
-                    b.MaBlock, b.TenBlock
+                    b.MaBlock, b.TenBlock,
+                    ISNULL(tt.Ten, 'N/A') AS TenTrangThai -- 👈 ĐÃ THÊM JOIN
                 FROM dbo.CanHo ch
                 JOIN dbo.Tang t ON ch.MaTang = t.MaTang
                 JOIN dbo.Block b ON t.MaBlock = b.MaBlock
+                LEFT JOIN dbo.TrangThai tt ON ch.MaTrangThai = tt.MaTrangThai -- 👈 ĐÃ THÊM JOIN
             `);
         res.json(result.recordset);
     } catch (err) {
@@ -33,12 +35,14 @@ const getCanHoById = async (req, res) => {
             .input('MaCanHo', mssql.Int, id)
             .query(`
                 SELECT 
-                    ch.MaCanHo, ch.SoCanHo,
+                    ch.MaCanHo, ch.SoCanHo, ch.MaTrangThai, 
                     t.MaTang, t.SoTang,
-                    b.MaBlock, b.TenBlock
+                    b.MaBlock, b.TenBlock,
+                    ISNULL(tt.Ten, 'N/A') AS TenTrangThai -- 👈 ĐÃ THÊM JOIN
                 FROM dbo.CanHo ch
                 JOIN dbo.Tang t ON ch.MaTang = t.MaTang
                 JOIN dbo.Block b ON t.MaBlock = b.MaBlock
+                LEFT JOIN dbo.TrangThai tt ON ch.MaTrangThai = tt.MaTrangThai -- 👈 ĐÃ THÊM JOIN
                 WHERE ch.MaCanHo = @MaCanHo
             `);
         
@@ -54,11 +58,10 @@ const getCanHoById = async (req, res) => {
 
 /**
  * POST /api/canho - Tạo căn hộ mới
- * Cần truyền vào: SoCanHo, MaTang
  */
 const createCanHo = async (req, res) => {
     try {
-        const { SoCanHo, MaTang } = req.body; 
+        const { SoCanHo, MaTang, MaTrangThai } = req.body; 
 
         if (!SoCanHo || !MaTang) {
             return res.status(400).send('Thiếu SoCanHo hoặc MaTang');
@@ -67,14 +70,13 @@ const createCanHo = async (req, res) => {
         const result = await req.pool.request()
             .input('SoCanHo', mssql.NVarChar, SoCanHo)
             .input('MaTang', mssql.Int, MaTang)
-            // (Bạn có thể thêm các cột khác như MaTrangThai nếu muốn)
-            .query('INSERT INTO dbo.CanHo (SoCanHo, MaTang) OUTPUT Inserted.* VALUES (@SoCanHo, @MaTang)');
+            .input('MaTrangThai', mssql.Int, MaTrangThai) // 👈 Đã thêm
+            .query(`INSERT INTO dbo.CanHo (SoCanHo, MaTang, MaTrangThai) 
+                    OUTPUT Inserted.* VALUES (@SoCanHo, @MaTang, @MaTrangThai)`);
         
         res.status(201).json(result.recordset[0]);
-    } catch (err)
- {
+    } catch (err) {
         console.error('Lỗi POST CanHo:', err);
-        // Bắt lỗi Unique (nếu trùng số căn hộ trong cùng 1 tầng)
         if (err.number === 2627 || err.number === 2601) {
             return res.status(400).send('Số căn hộ này đã tồn tại trong tầng này.');
         }
@@ -84,15 +86,13 @@ const createCanHo = async (req, res) => {
 
 /**
  * PUT /api/canho/:id - Cập nhật căn hộ
- * Cho phép cập nhật SoCanHo hoặc chuyển sang MaTang khác
  */
 const updateCanHo = async (req, res) => {
     try {
         const { id } = req.params;
-        const { SoCanHo, MaTang } = req.body;
+        const { SoCanHo, MaTang, MaTrangThai } = req.body; // 👈 Đã thêm
         const pool = req.pool;
 
-        // 1. Lấy dữ liệu cũ
         const oldDataResult = await pool.request()
             .input('MaCanHo', mssql.Int, id)
             .query('SELECT * FROM dbo.CanHo WHERE MaCanHo = @MaCanHo');
@@ -102,17 +102,18 @@ const updateCanHo = async (req, res) => {
         }
         const oldData = oldDataResult.recordset[0];
 
-        // 2. Trộn dữ liệu (partial update)
+        // Trộn dữ liệu
         const newSoCanHo = SoCanHo !== undefined ? SoCanHo : oldData.SoCanHo;
         const newMaTang = MaTang !== undefined ? MaTang : oldData.MaTang;
+        const newMaTrangThai = MaTrangThai !== undefined ? MaTrangThai : oldData.MaTrangThai; // 👈 Đã thêm
 
-        // 3. Thực thi UPDATE
         const result = await pool.request()
             .input('MaCanHo', mssql.Int, id)
             .input('SoCanHo', mssql.NVarChar, newSoCanHo)
             .input('MaTang', mssql.Int, newMaTang)
+            .input('MaTrangThai', mssql.Int, newMaTrangThai) // 👈 Đã thêm
             .query(`UPDATE dbo.CanHo 
-                    SET SoCanHo = @SoCanHo, MaTang = @MaTang
+                    SET SoCanHo = @SoCanHo, MaTang = @MaTang, MaTrangThai = @MaTrangThai
                     OUTPUT Inserted.* WHERE MaCanHo = @MaCanHo`);
         
         res.json(result.recordset[0]);
@@ -141,7 +142,6 @@ const deleteCanHo = async (req, res) => {
         res.json({ message: 'Đã xóa căn hộ thành công', data: result.recordset[0] });
     } catch (err) {
         console.error('Lỗi DELETE CanHo:', err);
-        // Lỗi khóa ngoại (ví dụ: căn hộ đã có Hợp Đồng, Hóa Đơn,...)
         if (err.number === 547) {
             return res.status(400).send('Không thể xóa: Căn hộ này đang được liên kết bởi dữ liệu khác (Hợp Đồng, Hóa Đơn,...).');
         }

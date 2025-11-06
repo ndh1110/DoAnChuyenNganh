@@ -3,7 +3,6 @@ const mssql = require('mssql');
 
 /**
  * GET /api/hoadon - Lấy tất cả hóa đơn
- * (JOIN với Căn Hộ, Tầng, Block)
  */
 const getAllHoaDon = async (req, res) => {
     try {
@@ -11,6 +10,7 @@ const getAllHoaDon = async (req, res) => {
             .query(`
                 SELECT 
                     hd.MaHoaDon, hd.KyThang, hd.NgayPhatHanh, hd.NgayDenHan, hd.TongTien,
+                    hd.TrangThai, -- 👈 ĐÃ THÊM
                     ch.MaCanHo, ch.SoCanHo,
                     t.SoTang,
                     b.TenBlock
@@ -28,19 +28,19 @@ const getAllHoaDon = async (req, res) => {
 };
 
 /**
- * GET /api/hoadon/:id - Lấy 1 hóa đơn theo ID (Bao gồm cả Chi Tiết)
+ * GET /api/hoadon/:id - Lấy 1 hóa đơn theo ID
  */
 const getHoaDonById = async (req, res) => {
     try {
         const { id } = req.params;
         const pool = req.pool;
 
-        // 1. Lấy thông tin hóa đơn chính
         const hoaDonResult = await pool.request()
             .input('MaHoaDon', mssql.Int, id)
             .query(`
                 SELECT 
                     hd.MaHoaDon, hd.KyThang, hd.NgayPhatHanh, hd.NgayDenHan, hd.TongTien,
+                    hd.TrangThai, -- 👈 ĐÃ THÊM
                     ch.MaCanHo, ch.SoCanHo,
                     t.SoTang,
                     b.TenBlock
@@ -55,7 +55,6 @@ const getHoaDonById = async (req, res) => {
             return res.status(404).send('Không tìm thấy hóa đơn');
         }
 
-        // 2. Lấy thông tin chi tiết hóa đơn (JOIN với Dịch Vụ)
         const chiTietResult = await pool.request()
             .input('MaHoaDon', mssql.Int, id)
             .query(`
@@ -67,7 +66,6 @@ const getHoaDonById = async (req, res) => {
                 WHERE ct.MaHoaDon = @MaHoaDon
             `);
 
-        // 3. Gộp kết quả
         const hoaDon = hoaDonResult.recordset[0];
         hoaDon.ChiTiet = chiTietResult.recordset;
 
@@ -80,15 +78,14 @@ const getHoaDonById = async (req, res) => {
 };
 
 /**
- * POST /api/hoadon - Tạo hóa đơn mới (chỉ tạo phiếu, TongTien = 0)
- * Cần: MaCanHo, KyThang, NgayPhatHanh, NgayDenHan
+ * POST /api/hoadon - Tạo hóa đơn mới
  */
 const createHoaDon = async (req, res) => {
     try {
         const { MaCanHo, KyThang, NgayPhatHanh, NgayDenHan } = req.body; 
 
         if (!MaCanHo || !KyThang || !NgayPhatHanh || !NgayDenHan) {
-            return res.status(400).send('Thiếu thông tin bắt buộc (MaCanHo, KyThang, NgayPhatHanh, NgayDenHan)');
+            return res.status(400).send('Thiếu thông tin bắt buộc');
         }
 
         const result = await req.pool.request()
@@ -96,7 +93,8 @@ const createHoaDon = async (req, res) => {
             .input('KyThang', mssql.Date, KyThang)
             .input('NgayPhatHanh', mssql.Date, NgayPhatHanh)
             .input('NgayDenHan', mssql.Date, NgayDenHan)
-            .input('TongTien', mssql.Decimal(18, 2), 0) // Hóa đơn mới tạo TongTien = 0
+            .input('TongTien', mssql.Decimal(18, 2), 0)
+            // TrangThai sẽ tự động lấy DEFAULT N'Chờ thanh toán'
             .query(`INSERT INTO dbo.HoaDon (MaCanHo, KyThang, NgayPhatHanh, NgayDenHan, TongTien) 
                     OUTPUT Inserted.* VALUES (@MaCanHo, @KyThang, @NgayPhatHanh, @NgayDenHan, @TongTien)`);
         
@@ -112,15 +110,11 @@ const createHoaDon = async (req, res) => {
 
 /**
  * DELETE /api/hoadon/:id - Xóa hóa đơn
- * (Sẽ xóa cả ChiTietHoaDon và ThanhToan liên quan vì có ON DELETE CASCADE)
  */
 const deleteHoaDon = async (req, res) => {
+    // ... (Giữ nguyên code của hàm deleteHoaDon, không cần thay đổi)
     try {
         const { id } = req.params;
-        
-        // Cảnh báo: Bảng ChiTietHoaDon và ThanhToan đều có ON DELETE CASCADE
-        // Xóa HoaDon sẽ xóa tất cả các dòng con liên quan.
-        
         const result = await req.pool.request()
             .input('MaHoaDon', mssql.Int, id)
             .query('DELETE FROM dbo.HoaDon OUTPUT Deleted.* WHERE MaHoaDon = @MaHoaDon');
@@ -135,10 +129,45 @@ const deleteHoaDon = async (req, res) => {
     }
 };
 
+// =============================================
+// ⭐ HÀM MỚI: Cập nhật trạng thái Hóa Đơn
+// =============================================
+/**
+ * PUT /api/hoadon/:id/status - Cập nhật trạng thái
+ */
+const updateHoaDonStatus = async (req, res) => {
+    try {
+        const { id } = req.params; // MaHoaDon
+        const { TrangThai } = req.body; // Ví dụ: "Đã thanh toán"
+
+        if (!TrangThai) {
+            return res.status(400).send('Thiếu TrangThai');
+        }
+
+        const result = await req.pool.request()
+            .input('MaHoaDon', mssql.Int, id)
+            .input('TrangThai', mssql.NVarChar, TrangThai)
+            .query(`UPDATE dbo.HoaDon 
+                    SET TrangThai = @TrangThai
+                    OUTPUT Inserted.* WHERE MaHoaDon = @MaHoaDon`);
+        
+        if (result.recordset.length === 0) {
+            return res.status(404).send('Không tìm thấy hóa đơn để cập nhật');
+        }
+        
+        res.json(result.recordset[0]);
+
+    } catch (err) {
+        console.error('Lỗi PUT HoaDon Status:', err);
+        res.status(500).send(err.message);
+    }
+};
+
+
 module.exports = {
     getAllHoaDon,
     getHoaDonById,
     createHoaDon,
-    deleteHoaDon
-    // Không làm PUT cho Hóa Đơn, vì TongTien được quản lý tự động
+    deleteHoaDon,
+    updateHoaDonStatus // 👈 Thêm hàm mới
 };

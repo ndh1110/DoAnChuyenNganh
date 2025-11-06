@@ -17,25 +17,30 @@ GET    /api/block/:id
 POST   /api/block
 PUT    /api/block/:id
 DELETE /api/block/:id
+
 GET    /api/tang
 GET    /api/tang/block/:id
 POST   /api/tang
 DELETE /api/tang/:id
+
 GET    /api/canho
 GET    /api/canho/:id
 POST   /api/canho
 PUT    /api/canho/:id
 DELETE /api/canho/:id
+
 GET    /api/khuvucchung
 GET    /api/khuvucchung/:id
 POST   /api/khuvucchung
 PUT    /api/khuvucchung/:id
 DELETE /api/khuvucchung/:id
+
 GET    /api/suco
 GET    /api/suco/:id
 POST   /api/suco
 PUT    /api/suco/:id
 DELETE /api/suco/:id
+
 GET    /api/kiemtra
 GET    /api/kiemtra/khuvuc/:id
 POST   /api/kiemtra
@@ -105,15 +110,21 @@ GET    /api/phancong/nhanvien/:id
 POST   /api/phancong
 PUT    /api/phancong/:id
 DELETE /api/phancong/:id
-## 7. Hệ thống & Thông báo
+
+## 7. Hệ thống & Thông báo---------------------------
+
 GET    /api/thongbao
 POST   /api/thongbao
 DELETE /api/thongbao/:id
 GET    /api/thongbaonguoidung/user/:id
 POST   /api/thongbaonguoidung/send
 PUT    /api/thongbaonguoidung/read/:id
+
 GET    /api/thietbi/user/:id
 POST   /api/thietbi
 DELETE /api/thietbi
+
 GET    /api/auditlog
 POST   /api/auditlog
+
+GET    /api/trangthai/context/:contextName

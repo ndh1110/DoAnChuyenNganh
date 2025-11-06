@@ -85,7 +85,6 @@ CREATE TABLE CanHo (
     MaTang INT NOT NULL,
     SoCanHo NVARCHAR(50) NOT NULL,
     MaTrangThai INT,
-    MaThanhPhanThanhChung NVARCHAR(100),
     CONSTRAINT FK_CanHo_Tang FOREIGN KEY (MaTang) 
         REFERENCES Tang(MaTang),
     CONSTRAINT UQ_CanHo_SoCanHo UNIQUE (MaTang, SoCanHo)

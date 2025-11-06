@@ -6,22 +6,21 @@ const chiTietHoaDonController = require('../controllers/chiTietHoaDonController'
 
 // === Routes cho Hóa Đơn (Bảng chính) ===
 
-// GET /api/hoadon/
 router.get('/', hoaDonController.getAllHoaDon);
-
-// GET /api/hoadon/:id
 router.get('/:id', hoaDonController.getHoaDonById);
-
-// POST /api/hoadon/
 router.post('/', hoaDonController.createHoaDon);
-
-// DELETE /api/hoadon/:id
 router.delete('/:id', hoaDonController.deleteHoaDon);
+
+// =============================================
+// ⭐ ROUTE MỚI: Cập nhật trạng thái
+// =============================================
+// PUT /api/hoadon/:id/status
+router.put('/:id/status', hoaDonController.updateHoaDonStatus);
 
 
 // === Routes cho Chi Tiết Hóa Đơn (Bảng con) ===
 
-// POST /api/hoadon/:id/chitiet (Thêm chi tiết vào hóa đơn :id)
+// POST /api/hoadon/:id/chitiet
 router.post('/:id/chitiet', chiTietHoaDonController.addChiTietHoaDon);
 
 module.exports = router;

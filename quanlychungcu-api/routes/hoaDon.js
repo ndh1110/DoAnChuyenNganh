@@ -4,24 +4,23 @@ const router = express.Router();
 const hoaDonController = require('../controllers/hoaDonController');
 const chiTietHoaDonController = require('../controllers/chiTietHoaDonController');
 
-// === Routes cho Hóa Đơn (Bảng chính) ===
+// === Routes cho HĂ³a ÄÆ¡n (Báº£ng chĂ­nh) ===
 
-// GET /api/hoadon/
 router.get('/', hoaDonController.getAllHoaDon);
-
-// GET /api/hoadon/:id
 router.get('/:id', hoaDonController.getHoaDonById);
-
-// POST /api/hoadon/
 router.post('/', hoaDonController.createHoaDon);
-
-// DELETE /api/hoadon/:id
 router.delete('/:id', hoaDonController.deleteHoaDon);
 
+// =============================================
+// â­ ROUTE Má»I: Cáº­p nháº­t tráº¡ng thĂ¡i
+// =============================================
+// PUT /api/hoadon/:id/status
+router.put('/:id/status', hoaDonController.updateHoaDonStatus);
 
-// === Routes cho Chi Tiết Hóa Đơn (Bảng con) ===
 
-// POST /api/hoadon/:id/chitiet (Thêm chi tiết vào hóa đơn :id)
+// === Routes cho Chi Tiáº¿t HĂ³a ÄÆ¡n (Báº£ng con) ===
+
+// POST /api/hoadon/:id/chitiet
 router.post('/:id/chitiet', chiTietHoaDonController.addChiTietHoaDon);
 
 module.exports = router;

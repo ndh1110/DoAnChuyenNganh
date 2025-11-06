@@ -2,8 +2,7 @@
 const mssql = require('mssql');
 
 /**
- * GET /api/hoadon - Lấy tất cả hóa đơn
- * (JOIN với Căn Hộ, Tầng, Block)
+ * GET /api/hoadon - Láº¥y táº¥t cáº£ hĂ³a Ä‘Æ¡n
  */
 const getAllHoaDon = async (req, res) => {
     try {
@@ -11,6 +10,7 @@ const getAllHoaDon = async (req, res) => {
             .query(`
                 SELECT 
                     hd.MaHoaDon, hd.KyThang, hd.NgayPhatHanh, hd.NgayDenHan, hd.TongTien,
+                    hd.TrangThai, -- đŸ‘ˆ ÄĂƒ THĂM
                     ch.MaCanHo, ch.SoCanHo,
                     t.SoTang,
                     b.TenBlock
@@ -22,25 +22,25 @@ const getAllHoaDon = async (req, res) => {
             `);
         res.json(result.recordset);
     } catch (err) {
-        console.error('Lỗi GET all HoaDon:', err);
+        console.error('Lá»—i GET all HoaDon:', err);
         res.status(500).send(err.message);
     }
 };
 
 /**
- * GET /api/hoadon/:id - Lấy 1 hóa đơn theo ID (Bao gồm cả Chi Tiết)
+ * GET /api/hoadon/:id - Láº¥y 1 hĂ³a Ä‘Æ¡n theo ID
  */
 const getHoaDonById = async (req, res) => {
     try {
         const { id } = req.params;
         const pool = req.pool;
 
-        // 1. Lấy thông tin hóa đơn chính
         const hoaDonResult = await pool.request()
             .input('MaHoaDon', mssql.Int, id)
             .query(`
                 SELECT 
                     hd.MaHoaDon, hd.KyThang, hd.NgayPhatHanh, hd.NgayDenHan, hd.TongTien,
+                    hd.TrangThai, -- đŸ‘ˆ ÄĂƒ THĂM
                     ch.MaCanHo, ch.SoCanHo,
                     t.SoTang,
                     b.TenBlock
@@ -52,10 +52,9 @@ const getHoaDonById = async (req, res) => {
             `);
         
         if (hoaDonResult.recordset.length === 0) {
-            return res.status(404).send('Không tìm thấy hóa đơn');
+            return res.status(404).send('KhĂ´ng tĂ¬m tháº¥y hĂ³a Ä‘Æ¡n');
         }
 
-        // 2. Lấy thông tin chi tiết hóa đơn (JOIN với Dịch Vụ)
         const chiTietResult = await pool.request()
             .input('MaHoaDon', mssql.Int, id)
             .query(`
@@ -67,28 +66,26 @@ const getHoaDonById = async (req, res) => {
                 WHERE ct.MaHoaDon = @MaHoaDon
             `);
 
-        // 3. Gộp kết quả
         const hoaDon = hoaDonResult.recordset[0];
         hoaDon.ChiTiet = chiTietResult.recordset;
 
         res.json(hoaDon);
 
     } catch (err) {
-        console.error('Lỗi GET HoaDon by ID:', err);
+        console.error('Lá»—i GET HoaDon by ID:', err);
         res.status(500).send(err.message);
     }
 };
 
 /**
- * POST /api/hoadon - Tạo hóa đơn mới (chỉ tạo phiếu, TongTien = 0)
- * Cần: MaCanHo, KyThang, NgayPhatHanh, NgayDenHan
+ * POST /api/hoadon - Táº¡o hĂ³a Ä‘Æ¡n má»›i
  */
 const createHoaDon = async (req, res) => {
     try {
         const { MaCanHo, KyThang, NgayPhatHanh, NgayDenHan } = req.body; 
 
         if (!MaCanHo || !KyThang || !NgayPhatHanh || !NgayDenHan) {
-            return res.status(400).send('Thiếu thông tin bắt buộc (MaCanHo, KyThang, NgayPhatHanh, NgayDenHan)');
+            return res.status(400).send('Thiáº¿u thĂ´ng tin báº¯t buá»™c');
         }
 
         const result = await req.pool.request()
@@ -96,49 +93,81 @@ const createHoaDon = async (req, res) => {
             .input('KyThang', mssql.Date, KyThang)
             .input('NgayPhatHanh', mssql.Date, NgayPhatHanh)
             .input('NgayDenHan', mssql.Date, NgayDenHan)
-            .input('TongTien', mssql.Decimal(18, 2), 0) // Hóa đơn mới tạo TongTien = 0
+            .input('TongTien', mssql.Decimal(18, 2), 0)
+            // TrangThai sáº½ tá»± Ä‘á»™ng láº¥y DEFAULT N'Chá» thanh toĂ¡n'
             .query(`INSERT INTO dbo.HoaDon (MaCanHo, KyThang, NgayPhatHanh, NgayDenHan, TongTien) 
                     OUTPUT Inserted.* VALUES (@MaCanHo, @KyThang, @NgayPhatHanh, @NgayDenHan, @TongTien)`);
         
         res.status(201).json(result.recordset[0]);
     } catch (err) {
-        console.error('Lỗi POST HoaDon:', err);
+        console.error('Lá»—i POST HoaDon:', err);
         if (err.number === 547) {
-            return res.status(400).send('Lỗi Khóa Ngoại: MaCanHo không tồn tại.');
+            return res.status(400).send('Lá»—i KhĂ³a Ngoáº¡i: MaCanHo khĂ´ng tá»“n táº¡i.');
         }
         res.status(500).send(err.message);
     }
 };
 
 /**
- * DELETE /api/hoadon/:id - Xóa hóa đơn
- * (Sẽ xóa cả ChiTietHoaDon và ThanhToan liên quan vì có ON DELETE CASCADE)
+ * DELETE /api/hoadon/:id - XĂ³a hĂ³a Ä‘Æ¡n
  */
 const deleteHoaDon = async (req, res) => {
+    // ... (Giá»¯ nguyĂªn code cá»§a hĂ m deleteHoaDon, khĂ´ng cáº§n thay Ä‘á»•i)
     try {
         const { id } = req.params;
-        
-        // Cảnh báo: Bảng ChiTietHoaDon và ThanhToan đều có ON DELETE CASCADE
-        // Xóa HoaDon sẽ xóa tất cả các dòng con liên quan.
-        
         const result = await req.pool.request()
             .input('MaHoaDon', mssql.Int, id)
             .query('DELETE FROM dbo.HoaDon OUTPUT Deleted.* WHERE MaHoaDon = @MaHoaDon');
 
         if (result.recordset.length === 0) {
-            return res.status(404).send('Không tìm thấy hóa đơn để xóa');
+            return res.status(404).send('KhĂ´ng tĂ¬m tháº¥y hĂ³a Ä‘Æ¡n Ä‘á»ƒ xĂ³a');
         }
-        res.json({ message: 'Đã xóa hóa đơn (và các chi tiết, thanh toán liên quan) thành công', data: result.recordset[0] });
+        res.json({ message: 'ÄĂ£ xĂ³a hĂ³a Ä‘Æ¡n (vĂ  cĂ¡c chi tiáº¿t, thanh toĂ¡n liĂªn quan) thĂ nh cĂ´ng', data: result.recordset[0] });
     } catch (err) {
-        console.error('Lỗi DELETE HoaDon:', err);
+        console.error('Lá»—i DELETE HoaDon:', err);
         res.status(500).send(err.message);
     }
 };
+
+// =============================================
+// â­ HĂ€M Má»I: Cáº­p nháº­t tráº¡ng thĂ¡i HĂ³a ÄÆ¡n
+// =============================================
+/**
+ * PUT /api/hoadon/:id/status - Cáº­p nháº­t tráº¡ng thĂ¡i
+ */
+const updateHoaDonStatus = async (req, res) => {
+    try {
+        const { id } = req.params; // MaHoaDon
+        const { TrangThai } = req.body; // VĂ­ dá»¥: "ÄĂ£ thanh toĂ¡n"
+
+        if (!TrangThai) {
+            return res.status(400).send('Thiáº¿u TrangThai');
+        }
+
+        const result = await req.pool.request()
+            .input('MaHoaDon', mssql.Int, id)
+            .input('TrangThai', mssql.NVarChar, TrangThai)
+            .query(`UPDATE dbo.HoaDon 
+                    SET TrangThai = @TrangThai
+                    OUTPUT Inserted.* WHERE MaHoaDon = @MaHoaDon`);
+        
+        if (result.recordset.length === 0) {
+            return res.status(404).send('KhĂ´ng tĂ¬m tháº¥y hĂ³a Ä‘Æ¡n Ä‘á»ƒ cáº­p nháº­t');
+        }
+        
+        res.json(result.recordset[0]);
+
+    } catch (err) {
+        console.error('Lá»—i PUT HoaDon Status:', err);
+        res.status(500).send(err.message);
+    }
+};
+
 
 module.exports = {
     getAllHoaDon,
     getHoaDonById,
     createHoaDon,
-    deleteHoaDon
-    // Không làm PUT cho Hóa Đơn, vì TongTien được quản lý tự động
+    deleteHoaDon,
+    updateHoaDonStatus // đŸ‘ˆ ThĂªm hĂ m má»›i
 };

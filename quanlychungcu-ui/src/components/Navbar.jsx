@@ -20,6 +20,8 @@ export default function Navbar() {
       <NavLink to="/invoices" style={linkStyle}>Invoices</NavLink>
       <NavLink to="/services" style={linkStyle}>Services</NavLink>
       <NavLink to="/employees" style={linkStyle}>Employees</NavLink>
+      <NavLink to="/requests" style={linkStyle}>Requests</NavLink>
+      <NavLink to="/common-areas" style={linkStyle}>Common-areas</NavLink>  
     </nav>
   );
 }

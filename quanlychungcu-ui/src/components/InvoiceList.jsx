@@ -4,7 +4,8 @@ import axios from 'axios';
 // Định nghĩa URL cơ sở của API backend
 const API_BASE_URL = 'http://localhost:5000/api';
 
-const InvoiceList = () => {
+// --- THAY ĐỔI 1: Nhận prop 'onRowClick' ---
+const InvoiceList = ({ onRowClick }) => {
     // 1. Khai báo state để lưu trữ danh sách Hóa đơn
     const [invoices, setInvoices] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -30,6 +31,7 @@ const InvoiceList = () => {
         fetchInvoices();
     }, []); 
 
+    // ... (Các hàm formatDate, formatBillingPeriod, formatCurrency không đổi) ...
     // Hàm tiện ích để định dạng ngày (ví dụ: 2025-10-30T... -> 30/10/2025)
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
@@ -50,6 +52,7 @@ const InvoiceList = () => {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
     };
 
+
     // 3. Hiển thị trạng thái tải và lỗi
     if (loading) {
         return <div className="p-6 text-center text-blue-500">Đang tải danh sách Hóa đơn...</div>;
@@ -68,6 +71,7 @@ const InvoiceList = () => {
             
             <table className="min-w-full bg-white border border-gray-200">
                 <thead className="bg-gray-100">
+                    {/* ... (Phần <tr> <th> không đổi) ... */}
                     <tr>
                         <th className="py-2 px-4 border-b text-left">Mã HĐ</th>
                         <th className="py-2 px-4 border-b text-left">Căn Hộ</th>
@@ -80,10 +84,14 @@ const InvoiceList = () => {
                 </thead>
                 <tbody>
                     {invoices.map((invoice) => (
-                        <tr key={invoice.MaHoaDon} className="hover:bg-gray-50">
+                        // --- THAY ĐỔI 2: Thêm class và sự kiện onClick cho <tr> ---
+                        <tr 
+                            key={invoice.MaHoaDon} 
+                            className={`hover:bg-gray-100 ${onRowClick ? 'cursor-pointer' : ''}`}
+                            onClick={() => onRowClick && onRowClick(invoice.MaHoaDon)}
+                        >
                             <td className="py-2 px-4 border-b">{invoice.MaHoaDon}</td>
                             
-                            {/* Giả định API /api/hoadon đã JOIN và trả về SoCanHo */}
                             <td className="py-2 px-4 border-b font-medium">
                                 {invoice.SoCanHo || `(Mã CH: ${invoice.MaCanHo})`}
                             </td>
@@ -93,14 +101,14 @@ const InvoiceList = () => {
                             <td className="py-2 px-4 border-b">{formatDate(invoice.NgayPhatHanh)}</td>
                             <td className="py-2 px-4 border-b">{formatDate(invoice.NgayDenHan)}</td>
                             
-                            {/* Giả định API /api/hoadon đã JOIN và trả về TenTrangThai */}
                             <td className="py-2 px-4 border-b">
                                 {invoice.TenTrangThai || 'Chờ thanh toán'}
                             </td>
                         </tr>
                     ))}
                     
-                    {invoices.length === 0 && (
+                    {/* ... (Phần "Chưa có dữ liệu" không đổi) ... */}
+                     {invoices.length === 0 && (
                         <tr>
                             <td colSpan="7" className="py-4 text-center text-gray-500">
                                 🧾 Chưa có dữ liệu về Hóa đơn.

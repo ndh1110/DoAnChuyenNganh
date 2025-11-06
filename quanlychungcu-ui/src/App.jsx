@@ -11,7 +11,10 @@ import ContractsPage from "./pages/ContractsPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import ServicesPage from "./pages/ServicesPage";
 import EmployeesPage from "./pages/EmployeesPage";
+import RequestsPage from "./pages/RequestsPage"; 
+import CommonAreasPage from "./pages/CommonAreasPage";
 import NotFound from "./pages/NotFound";
+
 
 // (Tùy chọn) Nghe sự kiện hết hạn đăng nhập do interceptor phát ra
 function AuthGuardEventBridge() {
@@ -46,6 +49,8 @@ function App() {
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/services" element={<ServicesPage />} />
             <Route path="/employees" element={<EmployeesPage />} />
+            <Route path="/requests" element={<RequestsPage />} />
+            <Route path="/common-areas" element={<CommonAreasPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

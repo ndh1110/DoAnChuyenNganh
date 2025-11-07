@@ -1,77 +1,121 @@
-// src/components/InvoiceForm.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Form "Dumb Component" cho việc Tạo Hóa đơn
-const InvoiceForm = ({ onSubmit, onClose }) => {
+const InvoiceForm = ({ 
+  isFormOpen, onClose, onSubmit, isLoading, 
+  allApartments // <-- NHẬN PROP TỪ CHA
+}) => {
   
   const [formData, setFormData] = useState({
     MaCanHo: '',
-    KyThang: '', // Sẽ là YYYY-MM
-    NgayPhatHanh: new Date().toISOString().split('T')[0], // Mặc định hôm nay
+    KyThang: '', // Sẽ là YYYY-MM-01
+    NgayPhatHanh: '',
     NgayDenHan: '',
   });
-  
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 1. Đồng bộ props hoặc Reset
+  useEffect(() => {
+    if (isFormOpen) {
+      const today = new Date().toISOString().split('T')[0];
+      const firstDayOfMonth = today.substring(0, 8) + '01'; 
+
+      setFormData({
+        MaCanHo: '',
+        KyThang: firstDayOfMonth,
+        NgayPhatHanh: today,
+        NgayDenHan: '',
+      });
+    }
+  }, [isFormOpen]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+  
+  const handleKyThangChange = (e) => {
+     const selectedDate = e.target.value;
+     if (selectedDate) {
+       const firstDay = selectedDate.substring(0, 8) + '01';
+       setFormData(prev => ({ ...prev, KyThang: firstDay }));
+     } else {
+       setFormData(prev => ({ ...prev, KyThang: '' }));
+     }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    
-    // Chuyển đổi KyThang (YYYY-MM) sang ngày đầu tiên của tháng
-    const kyThangDate = `${formData.KyThang}-01`;
+    if (isLoading || !formData.MaCanHo || !formData.KyThang) {
+      alert("Vui lòng chọn Căn Hộ và Kỳ Hóa Đơn.");
+      return;
+    }
     
     await onSubmit({ 
         ...formData,
-        MaCanHo: parseInt(formData.MaCanHo), // Đảm bảo là số
-        KyThang: kyThangDate 
+        MaCanHo: parseInt(formData.MaCanHo),
+        NgayPhatHanh: formData.NgayPhatHanh || null,
+        NgayDenHan: formData.NgayDenHan || null,
     }); 
-    
-    setIsSubmitting(false);
   };
+  
+  // (Đã xóa isSubmitting vì cha (Page) đã quản lý 'isLoading')
+
+  if (!isFormOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg">
+    // (Thay thế CSS inline bằng className)
+    <div className="modal-overlay"> 
+      <div className="modal-content large">
         <h2 className="text-2xl font-bold mb-4">Lập Hóa Đơn Mới</h2>
         <form onSubmit={handleSubmit}>
           
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Mã Căn Hộ (MaCanHo)</label>
-            <input type="number" name="MaCanHo" value={formData.MaCanHo} onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" required />
+          {/* --- SỬA Ở ĐÂY: Thay Input bằng Select --- */}
+          <div className="form-group">
+            <label htmlFor="MaCanHo">Căn Hộ (*)</label>
+            <select
+              id="MaCanHo"
+              name="MaCanHo"
+              value={formData.MaCanHo}
+              onChange={handleChange}
+              required
+              disabled={isLoading}
+            >
+              <option value="">-- Chọn Căn Hộ --</option>
+              {allApartments.map(apt => (
+                <option key={apt.MaCanHo} value={apt.MaCanHo}>
+                  {apt.SoCanHo} (Block: {apt.TenBlock})
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Kỳ Hóa Đơn (Chọn tháng/năm)</label>
-            <input type="month" name="KyThang" value={formData.KyThang} onChange={handleChange}
+          <div className="form-group">
+            <label htmlFor="KyThang">Kỳ Hóa Đơn (Chọn 1 ngày bất kỳ) (*)</label>
+            <input type="date" name="KyThang" value={formData.KyThang} onChange={handleKyThangChange}
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" required />
+            <small>Hệ thống sẽ tự động lưu là ngày 1 của tháng bạn chọn.</small>
           </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Ngày Phát Hành</label>
+          <div className="form-group">
+            <label htmlFor="NgayPhatHanh">Ngày Phát Hành</label>
             <input type="date" name="NgayPhatHanh" value={formData.NgayPhatHanh} onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" required />
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" />
           </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Ngày Đến Hạn</label>
+          <div className="form-group">
+            <label htmlFor="NgayDenHan">Ngày Đến Hạn</label>
             <input type="date" name="NgayDenHan" value={formData.NgayDenHan} onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" required />
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" />
           </div>
           
-          <div className="flex justify-end gap-3 mt-6">
-            <button type="button" onClick={onClose} disabled={isSubmitting}
-              className="bg-gray-300 hover:bg-gray-400 text-black py-2 px-4 rounded">
+          <div className="form-actions">
+            <button type="button" onClick={onClose} disabled={isLoading}
+              className="btn-cancel">
               Hủy
             </button>
-            <button type="submit" disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-              {isSubmitting ? 'Đang lưu...' : 'Lập Hóa Đơn'}
+            <button type="submit" disabled={isLoading}
+              className="btn-submit">
+              {isLoading ? 'Đang lưu...' : 'Lập Hóa Đơn'}
             </button>
           </div>
         </form>

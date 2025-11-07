@@ -28,3 +28,13 @@ export const updatePrice = (id, priceData) => {
 export const deletePrice = (id) => {
   return api.delete(`/banggia/${id}`);
 };
+export const serviceService = {
+  getAllServices,
+  createService,
+  updateService,
+  deleteService,
+  getAllPrices,
+  createPrice,
+  updatePrice,
+  deletePrice,
+};

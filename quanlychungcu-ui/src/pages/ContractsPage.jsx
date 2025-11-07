@@ -93,7 +93,7 @@ function ContractsPage() {
     return allContracts.map(con => {
       return {
         ...con,
-        TenChuHo: residentMap.get(con.ChuHoId) || 'N/A',
+        HoTen: residentMap.get(con.MaNguoiDung) || 'N/A',
         SoCanHo: apartmentMap.get(con.MaCanHo) || 'N/A',
       };
     });
@@ -136,7 +136,7 @@ function ContractsPage() {
       const dataToSubmit = {
         ...formData,
         MaCanHo: parseInt(formData.MaCanHo),
-        ChuHoId: parseInt(formData.ChuHoId),
+        MaNguoiDung: parseInt(formData.MaNguoiDung),
       };
 
       if (currentContract) {

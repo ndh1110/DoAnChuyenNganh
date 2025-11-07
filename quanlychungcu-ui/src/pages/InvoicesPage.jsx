@@ -1,10 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo} from 'react';
 
 // 1. Import Services
 // (Lưu ý: Đảm bảo bạn đã sửa file 'invoiceService.js' để nó export object 'invoiceService'
 // và các hàm trả về .data như tôi hướng dẫn)
 import { invoiceService } from '../services/invoiceService';
 import { serviceMeterService } from '../services/serviceMeterService';
+
+// --- IMPORT THÊM 3 SERVICE CHO FORM ---
+import { apartmentService } from '../services/apartmentService';
+import { floorService } from '../services/floorService';
+import { blockService } from '../services/blockService';
 
 // 2. Import Components
 import InvoiceList from '../components/InvoiceList.jsx';
@@ -17,11 +22,16 @@ const InvoicesPage = () => {
   const [invoices, setInvoices] = useState([]);
   const [meters, setMeters] = useState([]); // <-- State cho Chỉ số
   
+  const [allApartments, setAllApartments] = useState([]);
+  const [allFloors, setAllFloors] = useState([]);
+  const [allBlocks, setAllBlocks] = useState([]);
+
   const [loading, setLoading] = useState(true); // <-- Dùng 1 state loading chung
   const [error, setError] = useState(null);
 
   // (Các state cho Form và Details)
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // 'list' hoặc 'details'
   const [detailData, setDetailData] = useState({ invoice: null, payments: [] });
   const [detailLoading, setDetailLoading] = useState(false);
@@ -33,17 +43,30 @@ const InvoicesPage = () => {
       setLoading(true);
       setError(null);
       
-      // Fetch 2 API song song
-      const [invoiceData, meterData] = await Promise.all([
-        invoiceService.getAll(), // Gọi hàm từ service đã sửa
-        serviceMeterService.getAll()
+      // --- SỬA: Fetch 5 API song song ---
+      const [
+        invoiceData, 
+        meterData,
+        aptData,
+        floorData,
+        blockData
+      ] = await Promise.all([
+        invoiceService.getAll(),
+        serviceMeterService.getAll(),
+        apartmentService.getAll(), // (Cho Form)
+        floorService.getAll(),   // (Cho Form)
+        blockService.getAll()    // (Cho Form)
       ]);
       
-      setInvoices(invoiceData); // (service đã trả về .data)
-      setMeters(meterData); // (service đã trả về .data)
+      setInvoices(invoiceData);
+      setMeters(meterData);
+      // --- LƯU STATE MỚI CHO FORM ---
+      setAllApartments(aptData);
+      setAllFloors(floorData);
+      setAllBlocks(blockData);
 
     } catch (err) {
-      console.error("Lỗi khi tải dữ liệu Hóa đơn/Chỉ số:", err);
+      console.error("Lỗi khi tải dữ liệu Hóa đơn:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -56,14 +79,29 @@ const InvoicesPage = () => {
     }
   }, [loadData, viewMode]);
 
-  // 5. Logic CRUD Handlers
+  // 5. Logic "Làm giàu" Căn hộ (cho Form)
+  const hydratedApartments = useMemo(() => {
+    const floorMap = new Map(allFloors.map(f => [f.MaTang, f]));
+    const blockMap = new Map(allBlocks.map(b => [b.MaBlock, b]));
+    
+    return allApartments.map(apt => {
+        const floor = floorMap.get(apt.MaTang);
+        const block = floor ? blockMap.get(floor.MaBlock) : null;
+        return {
+          ...apt,
+          SoTang: floor ? floor.SoTang : null,
+          TenBlock: block ? block.TenBlock : null,
+        };
+      });
+  }, [allApartments, allFloors, allBlocks]);
+
+  // 6. Logic CRUD Handlers
   const handleDelete = async (id) => {
     if (window.confirm(`Bạn có chắc muốn xóa Hóa đơn (ID: ${id})?`)) {
       try {
         await invoiceService.delete(id);
-        loadData(); // Tải lại cả 2
+        loadData(); // Tải lại
       } catch (err) {
-        console.error("Lỗi khi xóa Hóa đơn:", err);
         setError(err.message);
       }
     }
@@ -71,12 +109,15 @@ const InvoicesPage = () => {
 
   const handleFormSubmit = async (formData) => {
     try {
+      setFormLoading(true);
       await invoiceService.create(formData);
       setIsFormOpen(false);
       loadData(); // Tải lại cả 2
     } catch (err) {
       console.error("Lỗi khi tạo Hóa đơn:", err);
-      setError(err.message); // Hiển thị lỗi
+      setError(err.response?.data || err.message); // Hiển thị lỗi
+    } finally {
+      setFormLoading(false);
     }
   };
 
@@ -113,9 +154,12 @@ const InvoicesPage = () => {
     <div className="invoices-page container mx-auto p-6">
       
       {isFormOpen && (
-        <InvoiceForm 
-          onSubmit={handleFormSubmit} 
+        <InvoiceForm
+          isFormOpen={isFormOpen}
           onClose={() => setIsFormOpen(false)} 
+          onSubmit={handleFormSubmit}
+          isLoading={formLoading}
+          allApartments={hydratedApartments} // Truyền căn hộ đã làm giàu
         />
       )}
       

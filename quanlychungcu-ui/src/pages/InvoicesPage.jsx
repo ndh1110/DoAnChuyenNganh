@@ -16,6 +16,7 @@ import InvoiceList from '../components/InvoiceList.jsx';
 import InvoiceDetails from '../components/InvoiceDetails.jsx'; // (Bạn đã có file này)
 import InvoiceForm from '../components/InvoiceForm.jsx'; // (Bạn đã có file này)
 import ServiceMeterList from '../components/ServiceMeterList.jsx';
+import ImportExcelModal from '../components/ImportExcelModal.jsx';
 
 const InvoicesPage = () => {
   // 3. Quản lý State
@@ -32,6 +33,11 @@ const InvoicesPage = () => {
   // (Các state cho Form và Details)
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+
+// --- 2. THÊM STATE MỚI CHO MODAL IMPORT ---
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+
   const [viewMode, setViewMode] = useState('list'); // 'list' hoặc 'details'
   const [detailData, setDetailData] = useState({ invoice: null, payments: [] });
   const [detailLoading, setDetailLoading] = useState(false);
@@ -149,31 +155,78 @@ const InvoicesPage = () => {
     setDetailData({ invoice: null, payments: [] });
   };
 
+  // --- 3. THÊM HANDLER MỚI CHO SUBMIT EXCEL ---
+  const handleImportSubmit = async (file) => {
+    try {
+      setImportLoading(true);
+      setError(null);
+      
+      // Gọi service (đã được cập nhật)
+      const result = await invoiceService.importInvoices(file);
+      
+      alert(result.message); // Hiển thị thông báo thành công
+      
+      // Nếu có lỗi, log ra console
+      if (result.failed > 0) {
+        console.warn('Các dòng bị lỗi khi import:', result.failedRecords);
+        alert(`Import thành công, nhưng có ${result.failed} dòng bị lỗi. Vui lòng kiểm tra Console (F12).`);
+      }
+
+      setIsImportModalOpen(false); // Đóng modal
+      loadData(); // Tải lại toàn bộ danh sách
+      
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.response?.data || err.message;
+      console.error("Lỗi khi import:", err);
+      setError(errorMsg); // Hiển thị lỗi
+      alert(`Lỗi: ${errorMsg}`);
+    } finally {
+      setImportLoading(false);
+    }
+  };
   // 7. Render UI
   return (
     <div className="invoices-page container mx-auto p-6">
       
-      {isFormOpen && (
-        <InvoiceForm
-          isFormOpen={isFormOpen}
-          onClose={() => setIsFormOpen(false)} 
-          onSubmit={handleFormSubmit}
-          isLoading={formLoading}
-          allApartments={hydratedApartments} // Truyền căn hộ đã làm giàu
-        />
-      )}
+      {/* Modal Lập Hóa Đơn (cũ) */}
+      <InvoiceForm 
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)} 
+        onSubmit={handleFormSubmit}
+        isLoading={formLoading}
+        allApartments={hydratedApartments} 
+      />
       
+      {/* --- 4. RENDER MODAL IMPORT MỚI --- */}
+      <ImportExcelModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSubmit={handleImportSubmit}
+        isLoading={importLoading}
+      />
+      
+      {/* Tiêu đề Trang */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-semibold text-gray-800">
           {viewMode === 'list' ? '🧾 Quản lý Hóa đơn & Ghi chỉ số' : 'Chi tiết Hóa đơn'}
         </h1>
         {viewMode === 'list' && (
-          <button
-            onClick={() => setIsFormOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow-md"
-          >
-            + Lập Hóa Đơn Mới
-          </button>
+          // --- 5. THÊM NÚT MỚI VÀO KHUNG CHỨA NÚT ---
+          <div className="page-header-actions">
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              className="btn-add-new"
+              style={{backgroundColor: '#1a734d', marginRight: '10px'}} // Màu xanh lá
+            >
+              Import Excel
+            </button>
+            <button
+              onClick={() => setIsFormOpen(true)}
+              className="btn-add-new"
+            >
+              + Lập Hóa Đơn Mới
+            </button>
+          </div>
         )}
       </div>
       <hr className="mb-6" />

@@ -37,6 +37,7 @@ const phanCongRoutes = require('./routes/phanCong');
 const suCoRoutes = require('./routes/suCo');
 const kiemTraKhuVucRoutes = require('./routes/kiemTraKhuVuc');
 const trangThaiRoutes = require('./routes/trangThai');
+const billingRoutes = require('./routes/billing');
 // Bạn có thể thêm các file route khác ở đây
 
 const app = express();
@@ -92,6 +93,7 @@ app.use('/api/phancong', protect, phanCongRoutes);
 app.use('/api/suco', protect, suCoRoutes);
 app.use('/api/kiemtrakhuvuc', protect, kiemTraKhuVucRoutes);
 app.use('/api/trangthai', protect, trangThaiRoutes);
+app.use('/api/billing', protect, billingRoutes);
 // Bạn có thể thêm các routes khác ở đây
 
 

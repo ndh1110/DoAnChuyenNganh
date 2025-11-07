@@ -1,34 +1,32 @@
+// src/pages/BlocksPage.jsx
+
 import React, { useState, useEffect, useCallback } from 'react';
 // 1. Import Lớp Service
 import { blockService } from '../services/blockService';
 
 // 2. Import các Component "Ngốc"
 import BlockList from '../components/BlockList';
-import BlockForm from '../components/BlockForm';
+import BlockForm from '../components/BlockForm'; // Chỉ cần import BlockForm
 
-/**
- * Component "Thông Minh" (Smart Component)
- * - Quản lý toàn bộ state (danh sách, loading, lỗi, modal).
- * - Quản lý toàn bộ logic (fetch, create, update, delete).
- * - Truyền state và logic xuống các component "ngốc".
- */
+// KHÔNG CẦN import BlockSetupForm
+
 function BlocksPage() {
   // === 3. Quản lý State ===
   const [blocks, setBlocks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // State cho Modal Form
+  // State cho Modal Form (DÙNG CHUNG)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
-  // State giữ block đang được chọn để Sửa
-  // (Nếu là null -> Tạo mới. Nếu có object -> Cập nhật)
   const [currentBlock, setCurrentBlock] = useState(null);
+  
+  // STATE MỚI: Xác định modal đang ở chế độ nào
+  const [modalMode, setModalMode] = useState('crud'); // 'crud' hoặc 'setup'
 
   // === 4. Logic (useEffect) ===
-  
-  // Dùng useCallback để tránh hàm bị tạo lại, tối ưu hiệu suất
   const loadBlocks = useCallback(async () => {
+    // ... (Giữ nguyên hàm loadBlocks của bạn)
     try {
       setLoading(true);
       setError(null);
@@ -39,68 +37,88 @@ function BlocksPage() {
     } finally {
       setLoading(false);
     }
-  }, []); // Hàm này không phụ thuộc vào gì, chỉ tạo 1 lần
+  }, []);
 
-  // useEffect để gọi API khi trang được tải (component mounted)
   useEffect(() => {
     loadBlocks();
-  }, [loadBlocks]); // Phụ thuộc vào `loadBlocks`
+  }, [loadBlocks]);
 
   // === 5. Các Hàm Xử Lý Sự Kiện (Event Handlers) ===
 
-  // Mở modal để TẠO MỚI
+  // Mở modal để TẠO MỚI (CRUD)
   const handleAddNew = () => {
-    setCurrentBlock(null); // Không có block nào đang sửa
+    setCurrentBlock(null);
+    setModalMode('crud'); // Đặt chế độ
     setIsModalOpen(true);
   };
 
-  // Mở modal để CẬP NHẬT (nhận `block` từ BlockList)
+  // Mở modal để CẬP NHẬT (CRUD)
   const handleEdit = (block) => {
-    setCurrentBlock(block); // Set block đang sửa
+    setCurrentBlock(block);
+    setModalMode('crud'); // Đặt chế độ
+    setIsModalOpen(true);
+  };
+  
+  // Mở modal để SETUP (Nâng cao)
+  const handleOpenSetupModal = () => {
+    setCurrentBlock(null);
+    setModalMode('setup'); // Đặt chế độ
     setIsModalOpen(true);
   };
 
-  // Xử lý sự kiện XÓA (nhận `id` từ BlockList)
+  // Xử lý sự kiện XÓA (Không đổi)
   const handleDelete = async (id) => {
-    // Xác nhận trước khi xóa
+    // ... (Giữ nguyên logic hàm delete của bạn)
     if (window.confirm(`Bạn có chắc muốn xóa Block (ID: ${id})?`)) {
       try {
-        setLoading(true); // Có thể dùng state loading riêng cho từng dòng
+        setLoading(true); 
         await blockService.delete(id);
         alert("Xóa Block thành công!");
-        // Tải lại danh sách sau khi xóa thành công
         loadBlocks();
       } catch (err) {
-        setError(err.message || "Lỗi khi xóa Block.");
-        alert(`Lỗi khi xóa: ${error}`);
+        const errorMsg = err.message || "Lỗi khi xóa Block.";
+        setError(errorMsg);
+        alert(`Lỗi khi xóa: ${errorMsg}`);
       } finally {
         setLoading(false);
       }
     }
   };
 
-  // Xử lý khi Form (trong modal) được SUBMIT
-  const handleFormSubmit = async (formData) => {
+  // Xử lý khi Form (trong modal) được SUBMIT (HÀM TỔNG)
+  // Đổi tên từ handleFormSubmit -> handleModalSubmit
+  const handleModalSubmit = async (formData) => {
+    // formData chứa { TenBlock, SoTang, TongSoCanHo }
     try {
       setFormLoading(true);
       setError(null);
 
-      if (currentBlock) {
-        // --- Cập nhật (Update) ---
-        await blockService.update(currentBlock.MaBlock, formData);
-        alert("Cập nhật Block thành công!");
+      if (modalMode === 'setup') {
+        // --- Chế độ Setup ---
+        // formData có TenBlock, SoTang, TongSoCanHo
+        const result = await blockService.setup(formData); // Gọi service.setup
+        alert(result.message || "Setup Block thành công!");
+        
       } else {
-        // --- Tạo mới (Create) ---
-        await blockService.create(formData);
-        alert("Tạo mới Block thành công!");
+        // --- Chế độ CRUD ---
+        // formData có TenBlock, SoTang (TongSoCanHo có thể có '' nhưng backend sẽ bỏ qua)
+        if (currentBlock) {
+          // --- Cập nhật (Update)
+          await blockService.update(currentBlock.MaBlock, formData);
+          alert("Cập nhật Block thành công!");
+        } else {
+          // --- Tạo mới (Create)
+          await blockService.create(formData);
+          alert("Tạo mới Block thành công!");
+        }
       }
 
       // Đóng modal và tải lại danh sách
       setIsModalOpen(false);
-      setCurrentBlock(null);
+      // setCurrentBlock(null); // Không cần vì đã set lúc mở
       loadBlocks();
     } catch (err) {
-      const errorMsg = err.response?.data?.message || err.message || "Lỗi khi lưu Block.";
+      const errorMsg = err.response?.data?.message || err.response?.data || err.message || "Lỗi khi lưu.";
       setError(errorMsg);
       alert(`Lỗi: ${errorMsg}`);
     } finally {
@@ -113,16 +131,20 @@ function BlocksPage() {
     <div className="page-container">
       <div className="page-header">
         <h2>Quản lý Chung Cư (Block)</h2>
-        <button onClick={handleAddNew} className="btn-add-new">
-          + Thêm Block Mới
-        </button>
+        <div>
+          <button onClick={handleAddNew} className="btn-add-new">
+            + Thêm Block (Đơn)
+          </button>
+          
+          {/* NÚT MỚI ĐỂ MỞ MODAL SETUP */}
+          <button onClick={handleOpenSetupModal} className="btn-add-new-setup" style={{marginLeft: '10px', background: '#007bff'}}>
+            + Thêm Nâng Cao (Setup)
+          </button>
+        </div>
       </div>
 
-      {/* Hiển thị lỗi nếu có */}
       {error && <div className="error-message">Lỗi: {error}</div>}
 
-      {/* 7. Truyền state và handlers xuống component "ngốc" 
-      */}
       <BlockList
         blocks={blocks}
         onEdit={handleEdit}
@@ -130,15 +152,19 @@ function BlocksPage() {
         isLoading={loading}
       />
       
-      {/* 8. Render Modal (Form) 
+      {/* 7. Render Modal (Form) DUY NHẤT
+        Truyền `mode` và `onSubmit` mới
       */}
       <BlockForm
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSubmit={handleFormSubmit}
+        onSubmit={handleModalSubmit} 
         initialData={currentBlock}
         isLoading={formLoading}
+        mode={modalMode} 
       />
+      
+      {/* KHÔNG CẦN BlockSetupForm NỮA */}
     </div>
   );
 }

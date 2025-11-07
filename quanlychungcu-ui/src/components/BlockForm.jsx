@@ -1,34 +1,44 @@
+// src/components/BlockForm.jsx
+
 import React, { useState, useEffect } from 'react';
 
 /**
- * Component "Ngốc" (Dumb Component)
- * - Form này dùng cho cả Create và Update.
- * - Nó quản lý state nội bộ của form (controlled component).
- * - Nó nhận `initialData` để biết đang edit hay create.
- * - Khi submit, nó gọi hàm `onSubmit` từ props.
+ * Component "Ngốc" (Dumb Component) - ĐÃ NÂNG CẤP
+ * - Form này dùng cho cả Create, Update (mode='crud') VÀ Setup (mode='setup').
+ * - Nó nhận `initialData` (chỉ dùng cho 'crud' edit).
+ * - Nó nhận `mode` để biết hiển thị field nào.
+ * - Khi submit, nó gọi hàm `onSubmit` từ props (truyền data lên cho cha là BlocksPage).
  */
-function BlockForm({ isOpen, onClose, onSubmit, initialData, isLoading }) {
-  // State nội bộ của form
-  const [formData, setFormData] = useState({ TenBlock: '', SoTang: '' });
+function BlockForm({ isOpen, onClose, onSubmit, initialData, isLoading, mode = 'crud' }) {
+  
+  // State nội bộ của form (chứa tất cả các trường có thể có)
+  const [formData, setFormData] = useState({
+    TenBlock: '',
+    SoTang: '',
+    TongSoCanHo: '' // Thêm trường mới
+  });
 
-  // Xác định xem đây là form Sửa (true) hay Tạo mới (false)
-  const isEditMode = Boolean(initialData);
+  // Xác định các chế độ
+  const isSetupMode = mode === 'setup';
+  // Chế độ Sửa (chỉ khi mode='crud' VÀ có initialData)
+  const isEditMode = !isSetupMode && Boolean(initialData);
 
-  // 1. Đồng bộ props `initialData` vào state nội bộ `formData`
+  // 1. Đồng bộ props `initialData` hoặc reset form
   useEffect(() => {
     if (isEditMode) {
-      // Nếu là edit, điền dữ liệu cũ vào form
+      // Nếu là Sửa 'crud', điền dữ liệu cũ (bỏ qua TongSoCanHo)
       setFormData({
         TenBlock: initialData.TenBlock,
         SoTang: initialData.SoTang,
+        TongSoCanHo: '' // Đảm bảo trường setup được reset
       });
     } else {
-      // Nếu là create, reset form
-      setFormData({ TenBlock: '', SoTang: '' });
+      // Nếu là Tạo mới 'crud' HOẶC là 'setup', reset toàn bộ form
+      setFormData({ TenBlock: '', SoTang: '', TongSoCanHo: '' });
     }
-  }, [initialData, isOpen]); // Chạy lại khi mở modal hoặc khi data edit thay đổi
+  }, [initialData, isOpen, mode]); // Chạy lại khi mode, data, hoặc modal thay đổi
 
-  // 2. Xử lý input change
+  // 2. Xử lý input change (không đổi)
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -37,9 +47,18 @@ function BlockForm({ isOpen, onClose, onSubmit, initialData, isLoading }) {
   // 3. Xử lý submit
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (isLoading) return; // Không cho submit nếu đang tải
+    if (isLoading) return;
     
-    // Gọi hàm submit từ props (truyền data lên cho cha là BlocksPage)
+    // Validation riêng cho mode 'setup'
+    if (isSetupMode) {
+      if (parseInt(formData.TongSoCanHo) % parseInt(formData.SoTang) !== 0) {
+        alert("Lỗi: Tổng số căn hộ phải chia hết cho số tầng.");
+        return;
+      }
+    }
+    
+    // Gọi hàm submit từ props (truyền TẤT CẢ formData lên cho cha)
+    // BlocksPage sẽ tự quyết định dùng trường nào
     onSubmit(formData);
   };
 
@@ -47,22 +66,36 @@ function BlockForm({ isOpen, onClose, onSubmit, initialData, isLoading }) {
   if (!isOpen) {
     return null;
   }
+  
+  // 5. Xác định tiêu đề và nút bấm động
+  let title = '';
+  let submitText = '';
+  
+  if (isSetupMode) {
+    title = 'Tạo Block Nâng Cao (Setup)';
+    submitText = 'Bắt đầu Setup';
+  } else if (isEditMode) {
+    title = 'Cập nhật Block';
+    submitText = 'Cập nhật';
+  } else {
+    title = 'Tạo Block Mới';
+    submitText = 'Tạo mới';
+  }
 
-  // 5. Render UI
+  // 6. Render UI
   return (
-    // Lớp overlay che mờ
     <div className="modal-overlay">
       <div className="modal-content">
-        {/* Nút đóng modal */}
         <button onClick={onClose} className="modal-close-btn" disabled={isLoading}>
           &times;
         </button>
         
-        <h2>{isEditMode ? 'Cập nhật Block' : 'Tạo Block Mới'}</h2>
+        <h2>{title}</h2>
+        {isSetupMode && <p>Tự động sinh Tầng và Căn hộ theo quy tắc.</p>}
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="TenBlock">Tên Block</label>
+            <label htmlFor="TenBlock">Tên Block {isSetupMode && "(Ví dụ: 'D')"}</label>
             <input
               type="text"
               id="TenBlock"
@@ -75,7 +108,7 @@ function BlockForm({ isOpen, onClose, onSubmit, initialData, isLoading }) {
           </div>
           
           <div className="form-group">
-            <label htmlFor="SoTang">Số Tầng</label>
+            <label htmlFor="SoTang">{isSetupMode ? 'Tổng Số Tầng' : 'Số Tầng'}</label>
             <input
               type="number"
               id="SoTang"
@@ -83,16 +116,34 @@ function BlockForm({ isOpen, onClose, onSubmit, initialData, isLoading }) {
               value={formData.SoTang}
               onChange={handleChange}
               min="1"
+              required // Yêu cầu ở cả 2 chế độ
               disabled={isLoading}
             />
           </div>
+          
+          {/* TRƯỜNG MỚI: Chỉ hiển thị ở mode 'setup' */}
+          {isSetupMode && (
+            <div className="form-group">
+              <label htmlFor="TongSoCanHo">Tổng Số Căn Hộ (Cả Block)</label>
+              <input
+                type="number"
+                id="TongSoCanHo"
+                name="TongSoCanHo"
+                value={formData.TongSoCanHo}
+                onChange={handleChange}
+                min="1"
+                required // Yêu cầu bắt buộc khi setup
+                disabled={isLoading}
+              />
+            </div>
+          )}
           
           <div className="form-actions">
             <button type="button" onClick={onClose} disabled={isLoading} className="btn-cancel">
               Hủy
             </button>
             <button type="submit" disabled={isLoading} className="btn-submit">
-              {isLoading ? 'Đang lưu...' : (isEditMode ? 'Cập nhật' : 'Tạo mới')}
+              {isLoading ? 'Đang lưu...' : submitText}
             </button>
           </div>
         </form>

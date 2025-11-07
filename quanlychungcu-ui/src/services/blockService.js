@@ -65,6 +65,16 @@ const deleteBlock = async (id) => {
   }
 };
 
+const setupBlock = async (setupData) => {
+  try {
+    const response = await api.post('/block/setup', setupData);
+    return response.data;
+  } catch (error) {
+    console.error("Lỗi khi setup block:", error.response || error);
+    throw error;
+  }
+};
+
 // Export tất cả các hàm
 export const blockService = {
   getAll: getAllBlocks,
@@ -72,4 +82,6 @@ export const blockService = {
   create: createBlock,
   update: updateBlock,
   delete: deleteBlock,
+  setup: setupBlock, // Thêm hàm mới vào export
+
 };

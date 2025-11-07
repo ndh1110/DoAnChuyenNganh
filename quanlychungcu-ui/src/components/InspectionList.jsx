@@ -1,36 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React from 'react';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+// Hàm helper (từ file cũ của bạn, nó rất hữu ích)
+const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(dateString));
+};
 
-const InspectionList = () => {
-    const [inspections, setInspections] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+/**
+ * Component "Ngốc" (Dumb Component)
+ * - KHÔNG tự gọi API.
+ * - Chỉ nhận props 'inspections' và 'isLoading' từ cha (CommonAreasPage).
+ */
+function InspectionList({ inspections, isLoading }) {
 
-    useEffect(() => {
-        const fetchInspections = async () => {
-            try {
-                // Gọi API GET /api/kiemtra
-                const response = await axios.get(`${API_BASE_URL}/kiemtrakhuvuc`);
-                setInspections(response.data); 
-                setLoading(false); 
-            } catch (err) {
-                console.error("Lỗi khi tải Lịch sử Kiểm tra:", err);
-                setError(err.message);
-                setLoading(false);
-            }
-        };
-        fetchInspections();
-    }, []); 
-
-    const formatDate = (dateString) => {
-        if (!dateString) return 'N/A';
-        return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(dateString));
-    };
-
-    if (loading) return <div className="p-4 text-center text-blue-500">Đang tải lịch sử kiểm tra...</div>;
-    if (error) return <div className="p-4 text-red-600 text-center font-semibold">❌ Lỗi API Kiểm tra: {error}.</div>;
+    if (isLoading) {
+        return <div className="p-4 text-center text-blue-500">Đang tải lịch sử kiểm tra...</div>;
+    }
 
     return (
         <div className="inspection-list mt-8 overflow-x-auto">
@@ -43,13 +28,14 @@ const InspectionList = () => {
                         <th className="py-2 px-4 border-b text-left">Nhân Viên KT</th>
                         <th className="py-2 px-4 border-b text-left">Thời Gian</th>
                         <th className="py-2 px-4 border-b text-left">Đánh Giá</th>
+                        <th className="py-2 px-4 border-b text-left">Hành Động</th>
                     </tr>
                 </thead>
                 <tbody>
+                    {/* Lặp qua props 'inspections' */}
                     {inspections.map((insp) => (
                         <tr key={insp.MaKiemTraKVC} className="hover:bg-gray-50">
                             <td className="py-2 px-4 border-b">{insp.MaKiemTraKVC}</td>
-                            {/* Giả định API /api/kiemtra đã JOIN và trả về TenKhuVuc, HoTen */}
                             <td className="py-2 px-4 border-b font-medium">
                                 {insp.TenKhuVuc || `(Mã KVC: ${insp.MaKhuVucChung})`}
                             </td>
@@ -58,11 +44,16 @@ const InspectionList = () => {
                             </td>
                             <td className="py-2 px-4 border-b">{formatDate(insp.ThoiGian)}</td>
                             <td className="py-2 px-4 border-b">{insp.DanhGia}</td>
+                            <td className="actions">
+                                <button onClick={() => alert('Xóa Kiểm tra')} className="btn-delete">
+                                  Xóa
+                                </button>
+                            </td>
                         </tr>
                     ))}
                     {inspections.length === 0 && (
                         <tr>
-                            <td colSpan="5" className="py-4 text-center text-gray-500">
+                            <td colSpan="6" className="py-4 text-center text-gray-500">
                                 🕵️ Chưa có hoạt động kiểm tra kỹ thuật nào.
                             </td>
                         </tr>

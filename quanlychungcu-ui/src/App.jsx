@@ -3,6 +3,10 @@ import "./App.css";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
+
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import ProtectedRoute from "./components/ProtectedRoute";
 import BlocksPage from "./pages/BlocksPage";
 import ResidentsPage from "./pages/ResidentsPage";
 import FloorsPage from "./pages/FloorsPage";
@@ -20,7 +24,11 @@ import NotFound from "./pages/NotFound";
 function AuthGuardEventBridge() {
   const navigate = useNavigate();
   useEffect(() => {
-    const handler = () => navigate("/login"); // hoặc navigate("/blocks");
+    const handler = () => {
+      authService.logout(); // Xóa token
+      navigate("/login");
+      window.location.reload(); // Tải lại
+    };
     window.addEventListener("auth:expired", handler);
     return () => window.removeEventListener("auth:expired", handler);
   }, [navigate]);
@@ -40,17 +48,27 @@ function App() {
         <main>
           <AuthGuardEventBridge />
           <Routes>
-            <Route path="/" element={<Navigate to="/blocks" replace />} />
-            <Route path="/blocks" element={<BlocksPage />} />
-            <Route path="/floors" element={<FloorsPage />} />
-            <Route path="/apartments" element={<ApartmentsPage />} />
-            <Route path="/residents" element={<ResidentsPage />} />
-            <Route path="/contracts" element={<ContractsPage />} />
-            <Route path="/invoices" element={<InvoicesPage />} />
-            <Route path="/services" element={<ServicesPage />} />
-            <Route path="/employees" element={<EmployeesPage />} />
-            <Route path="/requests" element={<RequestsPage />} />
-            <Route path="/common-areas" element={<CommonAreasPage />} />
+            {/* === Routes Công khai (Public) === */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+
+            {/* === Routes Bảo vệ (Protected) === */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Navigate to="/blocks" replace />} />
+              <Route path="/blocks" element={<BlocksPage />} />
+              <Route path="/floors" element={<FloorsPage />} />
+              <Route path="/apartments" element={<ApartmentsPage />} />
+              <Route path="/residents" element={<ResidentsPage />} />
+              <Route path="/contracts" element={<ContractsPage />} />
+              <Route path="/invoices" element={<InvoicesPage />} />
+              <Route path="/services" element={<ServicesPage />} />
+              <Route path="/employees" element={<EmployeesPage />} />
+              <Route path="/requests" element={<RequestsPage />} />
+              <Route path="/common-areas" element={<CommonAreasPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+
+            {/* Route cho 404 Not Found */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

@@ -30,7 +30,7 @@ const RequestsPage = () => {
       ]);
       
       setRequests(reqData.data); // Lấy .data
-      setIncidents(incData.data); // Lấy .data
+      setIncidents(incData); // Lấy .data
 
     } catch (err) {
       console.error("Lỗi khi tải dữ liệu Yêu cầu/Sự cố:", err);

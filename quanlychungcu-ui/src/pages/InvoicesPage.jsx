@@ -1,91 +1,99 @@
-// src/pages/InvoicesPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 
-// 1. Import Services và Components
-import * as invoiceService from '../services/invoiceService';
+// 1. Import Services
+// (Lưu ý: Đảm bảo bạn đã sửa file 'invoiceService.js' để nó export object 'invoiceService'
+// và các hàm trả về .data như tôi hướng dẫn)
+import { invoiceService } from '../services/invoiceService';
+import { serviceMeterService } from '../services/serviceMeterService';
+
+// 2. Import Components
 import InvoiceList from '../components/InvoiceList.jsx';
-import InvoiceDetails from '../components/InvoiceDetails.jsx';
-import InvoiceForm from '../components/InvoiceForm.jsx';
-// (Chúng ta tạm thời giữ ServiceMeterList, nó cũng cần refactor sau)
+import InvoiceDetails from '../components/InvoiceDetails.jsx'; // (Bạn đã có file này)
+import InvoiceForm from '../components/InvoiceForm.jsx'; // (Bạn đã có file này)
 import ServiceMeterList from '../components/ServiceMeterList.jsx';
 
 const InvoicesPage = () => {
-  // 2. Quản lý State
-  
-  // State cho Danh sách
+  // 3. Quản lý State
   const [invoices, setInvoices] = useState([]);
-  const [listLoading, setListLoading] = useState(true);
-  const [listError, setListError] = useState(null);
+  const [meters, setMeters] = useState([]); // <-- State cho Chỉ số
+  
+  const [loading, setLoading] = useState(true); // <-- Dùng 1 state loading chung
+  const [error, setError] = useState(null);
 
-  // State cho Form
+  // (Các state cho Form và Details)
   const [isFormOpen, setIsFormOpen] = useState(false);
-
-  // State cho Chi tiết
   const [viewMode, setViewMode] = useState('list'); // 'list' hoặc 'details'
   const [detailData, setDetailData] = useState({ invoice: null, payments: [] });
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(null);
 
-  // 3. Logic Fetch Data (Danh sách)
-  const fetchInvoices = useCallback(async () => {
+  // 4. Logic Fetch Data (Danh sách)
+  const loadData = useCallback(async () => {
     try {
-      setListLoading(true);
-      setListError(null);
-      const response = await invoiceService.getAllInvoices();
-      setInvoices(response.data);
+      setLoading(true);
+      setError(null);
+      
+      // Fetch 2 API song song
+      const [invoiceData, meterData] = await Promise.all([
+        invoiceService.getAll(), // Gọi hàm từ service đã sửa
+        serviceMeterService.getAll()
+      ]);
+      
+      setInvoices(invoiceData); // (service đã trả về .data)
+      setMeters(meterData); // (service đã trả về .data)
+
     } catch (err) {
-      console.error("Lỗi khi tải danh sách Hóa đơn:", err);
-      setListError(err.message);
+      console.error("Lỗi khi tải dữ liệu Hóa đơn/Chỉ số:", err);
+      setError(err.message);
     } finally {
-      setListLoading(false);
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     if (viewMode === 'list') {
-      fetchInvoices();
+      loadData();
     }
-  }, [fetchInvoices, viewMode]);
+  }, [loadData, viewMode]);
 
-  // 4. Logic CRUD Handlers
+  // 5. Logic CRUD Handlers
   const handleDelete = async (id) => {
     if (window.confirm(`Bạn có chắc muốn xóa Hóa đơn (ID: ${id})?`)) {
       try {
-        await invoiceService.deleteInvoice(id);
-        fetchInvoices(); // Tải lại danh sách
+        await invoiceService.delete(id);
+        loadData(); // Tải lại cả 2
       } catch (err) {
         console.error("Lỗi khi xóa Hóa đơn:", err);
-        setListError(err.message);
+        setError(err.message);
       }
     }
   };
 
   const handleFormSubmit = async (formData) => {
     try {
-      await invoiceService.createInvoice(formData);
-      setIsFormOpen(false); // Đóng form
-      fetchInvoices(); // Tải lại danh sách
+      await invoiceService.create(formData);
+      setIsFormOpen(false);
+      loadData(); // Tải lại cả 2
     } catch (err) {
       console.error("Lỗi khi tạo Hóa đơn:", err);
-      setListError(err.message); // Hiển thị lỗi
+      setError(err.message); // Hiển thị lỗi
     }
   };
 
-  // 5. Logic View Details Handlers
+  // 6. Logic View Details Handlers
   const handleViewDetails = async (id) => {
     setViewMode('details');
     setDetailLoading(true);
     setDetailError(null);
     try {
-      // Gọi 2 API cùng lúc
       const [invoiceRes, paymentsRes] = await Promise.all([
-        invoiceService.getInvoiceById(id),
-        invoiceService.getPaymentsByInvoiceId(id)
+        invoiceService.getById(id), 
+        invoiceService.getPayments(id) 
       ]);
       
       setDetailData({
-        invoice: invoiceRes.data,
-        payments: paymentsRes.data
+        invoice: invoiceRes,
+        payments: paymentsRes
       });
     } catch (err) {
       console.error("Lỗi khi tải Chi tiết Hóa đơn:", err);
@@ -97,14 +105,13 @@ const InvoicesPage = () => {
 
   const handleBackToList = () => {
     setViewMode('list');
-    setDetailData({ invoice: null, payments: [] }); // Xóa dữ liệu chi tiết
+    setDetailData({ invoice: null, payments: [] });
   };
 
-  // 6. Render UI
+  // 7. Render UI
   return (
     <div className="invoices-page container mx-auto p-6">
       
-      {/* --- MODAL FORM (Tạo mới) --- */}
       {isFormOpen && (
         <InvoiceForm 
           onSubmit={handleFormSubmit} 
@@ -112,7 +119,6 @@ const InvoicesPage = () => {
         />
       )}
       
-      {/* --- Tiêu đề Trang --- */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-semibold text-gray-800">
           {viewMode === 'list' ? '🧾 Quản lý Hóa đơn & Ghi chỉ số' : 'Chi tiết Hóa đơn'}
@@ -128,22 +134,28 @@ const InvoicesPage = () => {
       </div>
       <hr className="mb-6" />
 
-      {/* --- Hiển thị DANH SÁCH hoặc CHI TIẾT --- */}
       {viewMode === 'list' ? (
         <>
-          {listLoading && <div className="p-6 text-center text-blue-500">Đang tải danh sách Hóa đơn...</div>}
-          {listError && <div className="p-6 text-red-600 text-center font-semibold">❌ Lỗi API: {listError}.</div>}
+          {loading && <div className="p-6 text-center text-blue-500">Đang tải dữ liệu...</div>}
+          {error && <div className="p-6 text-red-600 text-center font-semibold">❌ Lỗi API: {error}.</div>}
           
-          {!listLoading && !listError && (
-            <InvoiceList
-              invoices={invoices}
-              onViewDetails={handleViewDetails}
-              onDelete={handleDelete}
-            />
+          {!loading && !error && (
+            <>
+              {/* Truyền props cho InvoiceList */}
+              <InvoiceList
+                invoices={invoices}
+                onViewDetails={handleViewDetails}
+                onDelete={handleDelete}
+                isLoading={false} // Tắt loading riêng
+              />
+              
+              {/* Truyền props cho ServiceMeterList */}
+              <ServiceMeterList 
+                meters={meters} 
+                isLoading={false} // Tắt loading riêng
+              />
+            </>
           )}
-          
-          {/* (Component này vẫn đang tự gọi API, sẽ refactor sau) */}
-          <ServiceMeterList />
         </>
       ) : (
         <>

@@ -4,7 +4,11 @@ const express = require('express');
 const cors = require('cors');
 const { pool, poolConnect } = require('./dbConfig');
 
+//Import các middleware
+const { protect } = require('./middleware/authMiddleware');
+
 // Import file route
+const authRoutes = require('./routes/auth');
 const nguoiDungRoutes = require('./routes/nguoiDung');
 const blockRoutes = require('./routes/block');
 const tangRoutes = require('./routes/tang');
@@ -56,35 +60,38 @@ app.use(async (req, res, next) => {
 });
 
 // === Routes ===
+//Route công khai (không cần bảo vệ)
+app.use('/api/auth', authRoutes);
+
 // Khi có request đến /api/nguoidung, hãy dùng file nguoiDungRoutes
-app.use('/api/nguoidung', nguoiDungRoutes);
-app.use('/api/block', blockRoutes);
-app.use('/api/tang', tangRoutes);
-app.use('/api/canho', canHoRoutes);
-app.use('/api/hopdong', hopDongRoutes);
-app.use('/api/dichvu', dichVuRoutes);
-app.use('/api/banggia', bangGiaRoutes);
-app.use('/api/chisodichvu', chiSoDichVuRoutes);
-app.use('/api/hoadon', hoaDonRoutes);
-app.use('/api/chitiethoadon', chiTietHoaDonRoutes);
-app.use('/api/thanhtoan', thanhToanRoutes);
-app.use('/api/giaodichthanhtoan', giaoDichThanhToanRoutes);
-app.use('/api/yeucau', yeuCauRoutes);
-app.use('/api/yeucaulog', yeuCauLogRoutes);
-app.use('/api/lichhen', lichHenRoutes);
-app.use('/api/lichsucutru', lichSuCuTruRoutes);
-app.use('/api/thongbao', thongBaoRoutes);
-app.use('/api/thongbaonguoidung', thongBaoNguoiDungRoutes);
-app.use('/api/thietbi', thietBiNguoiDungRoutes);
-app.use('/api/auditlog', auditLogRoutes);
-app.use('/api/dieukhoan', dieuKhoanRoutes);
-app.use('/api/nhanvien', nhanVienRoutes);
-app.use('/api/khuvucchung', khuVucChungRoutes);
-app.use('/api/lichtruc', lichTrucRoutes);
-app.use('/api/phancong', phanCongRoutes);
-app.use('/api/suco', suCoRoutes);
-app.use('/api/kiemtrakhuvuc', kiemTraKhuVucRoutes);
-app.use('/api/trangthai', trangThaiRoutes);
+app.use('/api/nguoidung', protect, nguoiDungRoutes);
+app.use('/api/block', protect, blockRoutes);
+app.use('/api/tang', protect, tangRoutes);
+app.use('/api/canho', protect, canHoRoutes);
+app.use('/api/hopdong', protect, hopDongRoutes);
+app.use('/api/dichvu', protect, dichVuRoutes);
+app.use('/api/banggia', protect, bangGiaRoutes);
+app.use('/api/chisodichvu', protect, chiSoDichVuRoutes);
+app.use('/api/hoadon', protect, hoaDonRoutes);
+app.use('/api/chitiethoadon', protect, chiTietHoaDonRoutes);
+app.use('/api/thanhtoan', protect, thanhToanRoutes);
+app.use('/api/giaodichthanhtoan', protect, giaoDichThanhToanRoutes);
+app.use('/api/yeucau', protect, yeuCauRoutes);
+app.use('/api/yeucaulog', protect, yeuCauLogRoutes);
+app.use('/api/lichhen', protect, lichHenRoutes);
+app.use('/api/lichsucutru', protect, lichSuCuTruRoutes);
+app.use('/api/thongbao', protect, thongBaoRoutes);
+app.use('/api/thongbaonguoidung', protect, thongBaoNguoiDungRoutes);
+app.use('/api/thietbi', protect, thietBiNguoiDungRoutes);
+app.use('/api/auditlog', protect, auditLogRoutes);
+app.use('/api/dieukhoan', protect, dieuKhoanRoutes);
+app.use('/api/nhanvien', protect, nhanVienRoutes);
+app.use('/api/khuvucchung', protect, khuVucChungRoutes);
+app.use('/api/lichtruc', protect, lichTrucRoutes);
+app.use('/api/phancong', protect, phanCongRoutes);
+app.use('/api/suco', protect, suCoRoutes);
+app.use('/api/kiemtrakhuvuc', protect, kiemTraKhuVucRoutes);
+app.use('/api/trangthai', protect, trangThaiRoutes);
 // Bạn có thể thêm các routes khác ở đây
 
 

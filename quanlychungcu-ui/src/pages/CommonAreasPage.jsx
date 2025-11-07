@@ -1,33 +1,62 @@
-import React from 'react';
-import CommonAreaList from '../components/CommonAreaList.jsx';
-import InspectionList from '../components/InspectionList.jsx';
+import React, { useState, useEffect, useCallback } from 'react';
+// Import các Service mới
+import { commonAreaService } from '../services/commonAreaService';
+import { incidentService } from '../services/incidentService';
+import { inspectionService } from '../services/inspectionService';
+// Import các Component "ngốc"
+import CommonAreaList from '../components/CommonAreaList';
+import IncidentList from '../components/IncidentList';
+import InspectionList from '../components/InspectionList';
 
-const CommonAreasPage = () => {
+function CommonAreasPage() {
+    // State cho 3 danh sách
+    const [areas, setAreas] = useState([]);
+    const [incidents, setIncidents] = useState([]);
+    const [inspections, setInspections] = useState([]);
     
-  const handleAction = () => {
-    alert('Chức năng Quản lý Kỹ thuật/Khu vực chung sẽ được xây dựng sau!');
-  };
+    // State loading/error
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-  return (
-    <div className="common-areas-page container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-semibold text-gray-800">
-          🏞️ Quản lý Kỹ thuật & Khu vực chung
-        </h1>
-        <button 
-          onClick={handleAction}
-          className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded shadow-md transition duration-200"
-        >
-          + Quản lý Kỹ thuật
-        </button>
-      </div>
+    // Fetch 3 API song song
+    const loadData = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const [areasData, incidentsData, inspectionsData] = await Promise.all([
+                commonAreaService.getAll(),
+                incidentService.getAll(),
+                inspectionService.getAll()
+            ]);
+            setAreas(areasData);
+            setIncidents(incidentsData);
+            setInspections(inspectionsData);
+        } catch (err) {
+            setError(err.message || "Lỗi khi tải dữ liệu Kỹ thuật.");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-      <hr className="mb-6"/>
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
-      <CommonAreaList />
-      <InspectionList />
-    </div>
-  );
-};
+    return (
+        <div className="page-container">
+            <div className="page-header">
+                <h2>🏞️ Quản lý Kỹ thuật & Khu vực chung</h2>
+                <button className="btn-add-new">+ Quản lý Kỹ thuật</button>
+            </div>
+
+            {error && <div className="error-message">{error}</div>}
+
+            {/* Truyền props xuống các component "ngốc" */}
+            <CommonAreaList areas={areas} isLoading={loading} />
+            <IncidentList incidents={incidents} isLoading={loading} />
+            <InspectionList inspections={inspections} isLoading={loading} />
+        </div>
+    );
+}
 
 export default CommonAreasPage;

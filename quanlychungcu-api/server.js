@@ -8,6 +8,7 @@ const { pool, poolConnect } = require('./dbConfig');
 const { protect } = require('./middleware/authMiddleware');
 
 // Import file route
+const billingRoutes = require('./routes/billing')
 const authRoutes = require('./routes/auth');
 const nguoiDungRoutes = require('./routes/nguoiDung');
 const blockRoutes = require('./routes/block');
@@ -92,6 +93,7 @@ app.use('/api/phancong', protect, phanCongRoutes);
 app.use('/api/suco', protect, suCoRoutes);
 app.use('/api/kiemtrakhuvuc', protect, kiemTraKhuVucRoutes);
 app.use('/api/trangthai', protect, trangThaiRoutes);
+app.use('/api/billing', protect, billingRoutes);
 // Bạn có thể thêm các routes khác ở đây
 
 

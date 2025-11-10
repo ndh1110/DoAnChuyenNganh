@@ -69,6 +69,26 @@ export const addInvoiceDetail = async (invoiceId, detailData) => {
   } catch (error) { throw error; }
 };
 
+const importInvoices = async (file) => {
+  // 1. Tạo FormData
+  const formData = new FormData();
+  // 'excelFile' phải khớp với tên trường multer mong đợi ở backend
+  formData.append('excelFile', file); 
+
+  try {
+    // 2. Gọi API billing (file api.js sẽ tự đính kèm token)
+    const response = await api.post('/billing/import-excel', formData, {
+      // 3. Bắt buộc: Ghi đè header cho file upload
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data; // Trả về kết quả (message, failedRecords)
+  } catch (error) {
+    console.error("Lỗi khi import hóa đơn:", error.response || error);
+    throw error;
+  }
+};
 export const invoiceService = {
   getAll: getAllInvoices,
   getById: getInvoiceById,
@@ -76,4 +96,5 @@ export const invoiceService = {
   delete: deleteInvoice,
   getPayments: getPaymentsByInvoiceId,
   addDetail: addInvoiceDetail,
+  importInvoices
 };

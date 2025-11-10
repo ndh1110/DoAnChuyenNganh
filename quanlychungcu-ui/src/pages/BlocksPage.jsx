@@ -1,14 +1,11 @@
 // src/pages/BlocksPage.jsx
-
 import React, { useState, useEffect, useCallback } from 'react';
 // 1. Import Lớp Service
 import { blockService } from '../services/blockService';
 
 // 2. Import các Component "Ngốc"
 import BlockList from '../components/BlockList';
-import BlockForm from '../components/BlockForm'; // Chỉ cần import BlockForm
-
-// KHÔNG CẦN import BlockSetupForm
+import BlockForm from '../components/BlockForm';
 
 function BlocksPage() {
   // === 3. Quản lý State ===
@@ -26,7 +23,6 @@ function BlocksPage() {
 
   // === 4. Logic (useEffect) ===
   const loadBlocks = useCallback(async () => {
-    // ... (Giữ nguyên hàm loadBlocks của bạn)
     try {
       setLoading(true);
       setError(null);
@@ -66,9 +62,8 @@ function BlocksPage() {
     setIsModalOpen(true);
   };
 
-  // Xử lý sự kiện XÓA (Không đổi)
+  // Xử lý sự kiện XÓA
   const handleDelete = async (id) => {
-    // ... (Giữ nguyên logic hàm delete của bạn)
     if (window.confirm(`Bạn có chắc muốn xóa Block (ID: ${id})?`)) {
       try {
         setLoading(true); 
@@ -86,7 +81,6 @@ function BlocksPage() {
   };
 
   // Xử lý khi Form (trong modal) được SUBMIT (HÀM TỔNG)
-  // Đổi tên từ handleFormSubmit -> handleModalSubmit
   const handleModalSubmit = async (formData) => {
     // formData chứa { TenBlock, SoTang, TongSoCanHo }
     try {
@@ -115,7 +109,6 @@ function BlocksPage() {
 
       // Đóng modal và tải lại danh sách
       setIsModalOpen(false);
-      // setCurrentBlock(null); // Không cần vì đã set lúc mở
       loadBlocks();
     } catch (err) {
       const errorMsg = err.response?.data?.message || err.response?.data || err.message || "Lỗi khi lưu.";
@@ -136,7 +129,6 @@ function BlocksPage() {
             + Thêm Block (Đơn)
           </button>
           
-          {/* NÚT MỚI ĐỂ MỞ MODAL SETUP */}
           <button onClick={handleOpenSetupModal} className="btn-add-new-setup" style={{marginLeft: '10px', background: '#007bff'}}>
             + Thêm Nâng Cao (Setup)
           </button>
@@ -152,9 +144,7 @@ function BlocksPage() {
         isLoading={loading}
       />
       
-      {/* 7. Render Modal (Form) DUY NHẤT
-        Truyền `mode` và `onSubmit` mới
-      */}
+      {/* 7. Render Modal (Form) DUY NHẤT */}
       <BlockForm
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -163,8 +153,6 @@ function BlocksPage() {
         isLoading={formLoading}
         mode={modalMode} 
       />
-      
-      {/* KHÔNG CẦN BlockSetupForm NỮA */}
     </div>
   );
 }

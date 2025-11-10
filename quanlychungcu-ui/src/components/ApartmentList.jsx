@@ -1,3 +1,4 @@
+// src/components/ApartmentList.jsx
 import React from 'react';
 
 /**
@@ -18,10 +19,12 @@ function ApartmentList({ apartments, onEdit, onDelete, isLoading }) {
     <table className="data-table">
       <thead>
         <tr>
+          <th>Mã Căn Hộ (ID)</th>
           <th>Mã Căn Hộ</th>
-          <th>Số Căn Hộ</th>
           <th>Tên Block</th>
           <th>Số Tầng</th>
+          <th>Loại Căn Hộ</th>
+          <th>Diện Tích (m²)</th>
           <th>Trạng Thái</th>
           <th>Hành Động</th>
         </tr>
@@ -31,11 +34,10 @@ function ApartmentList({ apartments, onEdit, onDelete, isLoading }) {
           <tr key={apt.MaCanHo}>
             <td>{apt.MaCanHo}</td>
             <td>{apt.SoCanHo}</td>
-            {/* Hiển thị dữ liệu đã "làm giàu" từ component cha (Page).
-              Nếu không tìm thấy, hiển thị MaTang gốc. 
-            */}
             <td>{apt.TenBlock || `(Block ID: ${apt.MaBlock})`}</td>
             <td>{apt.SoTang || `(Tầng ID: ${apt.MaTang})`}</td>
+            <td>{apt.LoaiCanHo || 'N/A'}</td>
+            <td>{apt.DienTich || 'N/A'}</td>
             <td>{apt.TenTrangThai || 'N/A'}</td>
             <td className="actions">
               <button onClick={() => onEdit(apt)} className="btn-edit">

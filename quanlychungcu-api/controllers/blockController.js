@@ -103,9 +103,6 @@ const deleteBlock = async (req, res) => {
     try {
         const { id } = req.params;
         
-        // Cảnh báo: Bảng Tang (Tầng) có ON DELETE CASCADE [cite: 1946]
-        // Xóa Block sẽ xóa tất cả Tầng, Căn Hộ, Hóa Đơn, Hợp Đồng... liên quan đến Block đó.
-        
         const result = await req.pool.request()
             .input('MaBlock', mssql.Int, id)
             .query('DELETE FROM dbo.Block OUTPUT Deleted.* WHERE MaBlock = @MaBlock');
@@ -120,6 +117,11 @@ const deleteBlock = async (req, res) => {
     }
 };
 
+
+/**
+ * POST /api/block/setup - Nghiệp vụ đặc biệt:
+ * Tạo Block, Tầng, và Căn hộ hàng loạt.
+ */
 const setupBlockWithApartments = async (req, res) => {
     const { TenBlock, SoTang, TongSoCanHo } = req.body;
 
@@ -140,8 +142,6 @@ const setupBlockWithApartments = async (req, res) => {
     console.log(`Bắt đầu setup Block: ${TenBlock}. Tầng: ${SoTang}. Căn/Tầng: ${canHoMoiTang}`);
 
     // --- 2. Bắt đầu Transaction ---
-    // Sử dụng Transaction để đảm bảo an toàn dữ liệu
-    // Nếu 1 trong các bước lỗi, tất cả sẽ được rollback
     const transaction = new mssql.Transaction(req.pool);
 
     try {
@@ -169,15 +169,17 @@ const setupBlockWithApartments = async (req, res) => {
             // 4b. Lặp để tạo Căn hộ cho Tầng 't'
             for (let c = 1; c <= canHoMoiTang; c++) {
                 
-                // 4c. Tạo Mã Căn Hộ (ví dụ: D.02.01)
-                // padStart(2, '0') để đảm bảo số có 2 chữ số (01, 02, ..., 10)
+                // 4c. Tạo Mã Căn Hộ (ĐÃ SỬA)
                 const floorCode = String(t).padStart(2, '0');
                 const apartmentCode = String(c).padStart(2, '0');
-                const soCanHoString = `${TenBlock}.${floorCode}.${apartmentCode}`;
+                
+                // Tách "Block D" -> "D"
+                const tenBlockParts = TenBlock.split(' ');
+                const tenBlockShort = tenBlockParts[tenBlockParts.length - 1];
+
+                const soCanHoString = `${tenBlockShort}.${floorCode}.${apartmentCode}`;
 
                 // 4d. Tạo Căn Hộ
-                // Ghi chú: Dựa theo ngữ cảnh bạn cung cấp, MaTrangThai 8 là "Trống"
-                // Chúng ta gán mặc định là 8 khi tạo căn hộ mới
                 await transaction.request()
                     .input('MaTang', mssql.Int, newTangId)
                     .input('SoCanHo', mssql.NVarChar, soCanHoString)
@@ -211,4 +213,4 @@ module.exports = {
     updateBlock,
     deleteBlock,
     setupBlockWithApartments // Export hàm mới
-}
+};

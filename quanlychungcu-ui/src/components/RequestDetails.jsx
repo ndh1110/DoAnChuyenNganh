@@ -1,8 +1,8 @@
 // src/components/RequestDetails.jsx
 import React from 'react';
 
-// "Dumb Component" - Chỉ nhận props
-const RequestDetails = ({ request, logs, appointments, onBack }) => {
+// --- THAY ĐỔI 1: Thêm props 'onAddLog' và 'onAddAppointment' ---
+const RequestDetails = ({ request, onBack, onAddLog, onAddAppointment }) => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -11,19 +11,40 @@ const RequestDetails = ({ request, logs, appointments, onBack }) => {
 
   if (!request) return null;
 
+  // --- THAY ĐỔI 2: Lấy 'Logs' và 'LichHen' trực tiếp từ prop 'request' ---
+  // (Dựa theo API GET /api/yeucau/:id)
+  const logs = request.Logs || [];
+  const appointments = request.LichHen || [];
+
   return (
     <div className="request-details mt-6 p-4 border rounded-lg bg-gray-50">
       <button onClick={onBack} className="mb-4 text-blue-600 hover:underline">&larr; Quay lại danh sách</button>
       
       <h3 className="text-2xl font-bold mb-4">Chi tiết Yêu cầu #{request.MaYeuCau}</h3>
       
-      {/* Thông tin chính */}
+      {/* Thông tin chính (Đọc từ API) */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <div><strong>Người gửi:</strong> {request.HoTen || 'N/A'}</div>
+        <div><strong>Người gửi:</strong> {request.TenNguoiGui || 'N/A'}</div>
         <div><strong>Căn hộ:</strong> {request.SoCanHo || 'N/A'}</div>
         <div><strong>Loại:</strong> {request.Loai}</div>
         <div><strong>Trạng thái:</strong> {request.TrangThaiThanhChung}</div>
         <div className="col-span-2"><strong>Mô tả:</strong> {request.MoTa || '(Không có mô tả)'}</div>
+      </div>
+
+      {/* --- THAY ĐỔI 3: Thêm các nút hành động --- */}
+      <div className="flex gap-3 mb-6">
+        <button
+          onClick={onAddAppointment}
+          className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+        >
+          + Đặt Lịch Hẹn Mới
+        </button>
+        <button
+          onClick={onAddLog}
+          className="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded"
+        >
+          + Thêm Log Xử Lý
+        </button>
       </div>
 
       {/* --- Bảng Log Xử Lý --- */}
@@ -37,15 +58,15 @@ const RequestDetails = ({ request, logs, appointments, onBack }) => {
           </tr>
         </thead>
         <tbody>
-          {/* (Giả định 'logs' là một mảng) */}
-          {logs && logs.map((log) => (
+          {logs.map((log) => (
             <tr key={log.MaLog}>
               <td className="py-2 px-4 border-b">{formatDate(log.ThoiGian)}</td>
               <td className="py-2 px-4 border-b">{log.GhiChu}</td>
-              <td className="py-2 px-4 border-b">{log.HoTenNguoiXuLy || `(Mã NV: ${log.NguoiXuLyId})`}</td>
+              {/* API trả về 'TenNguoiXuLy' */}
+              <td className="py-2 px-4 border-b">{log.TenNguoiXuLy || `(Mã NV: ${log.NguoiXuLyId})`}</td>
             </tr>
           ))}
-          {(!logs || logs.length === 0) && (
+          {logs.length === 0 && (
             <tr><td colSpan="3" className="py-4 text-center text-gray-500">Chưa có log xử lý.</td></tr>
           )}
         </tbody>
@@ -62,15 +83,15 @@ const RequestDetails = ({ request, logs, appointments, onBack }) => {
           </tr>
         </thead>
         <tbody>
-          {/* (Giả định 'appointments' là một mảng) */}
-          {appointments && appointments.map((app) => (
+          {appointments.map((app) => (
             <tr key={app.MaLichHen}>
               <td className="py-2 px-4 border-b">{formatDate(app.ThoiGian)}</td>
-              <td className="py-2 px-4 border-b">{app.HoTenNguoiDung || `(Mã ND: ${app.MaNguoiDung})`}</td>
+              {/* API trả về 'TenNguoiHen' */}
+              <td className="py-2 px-4 border-b">{app.TenNguoiHen || `(Mã ND: ${app.MaNguoiDung})`}</td>
               <td className="py-2 px-4 border-b">{app.TrangThai}</td>
             </tr>
           ))}
-          {(!appointments || appointments.length === 0) && (
+          {appointments.length === 0 && (
             <tr><td colSpan="3" className="py-4 text-center text-gray-500">Chưa có lịch hẹn nào.</td></tr>
           )}
         </tbody>

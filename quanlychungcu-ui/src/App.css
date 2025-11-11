@@ -45,3 +45,61 @@
 .App-header h1 { font-size: 48px; margin-bottom: 24px; }
 h2 { text-align: center; margin: 24px 0 16px; }
 ul li, table { font-size: 16px; }
+/* src/App.css (hoặc index.css) */
+
+/* Thêm CSS cho việc in ấn */
+@media print {
+  
+  /* Ẩn tất cả mọi thứ KHÔNG CẦN IN */
+  body > div#root > div.App > header,
+  body > div#root > div.App > nav,
+  body > div#root > div.App > footer,
+  body > div#root > div.App > main > div.container > div.flex.justify-between,
+  body > div#root > div.App > main > div.container > hr,
+  .no-print,
+  .modal-overlay {
+    display: none !important;
+  }
+
+  /* Đảm bảo nội dung Hóa đơn chiếm toàn bộ trang */
+  body > div#root > div.App > main {
+    padding: 0;
+    margin: 0;
+  }
+  
+  /* Chỉ định phần tử #printable-invoice là thứ DUY NHẤT được in */
+  #printable-invoice {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    border: none;
+    box-shadow: none;
+    background-color: white;
+    color: black;
+  }
+  
+  /* Tối ưu hóa bảng biểu khi in */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  table th, table td {
+    border: 1px solid #ccc !important;
+    padding: 8px;
+  }
+  
+  table thead {
+    background-color: #eee !important;
+    color: black;
+  }
+  
+  /* Ngăn các bảng bị vỡ trang giữa chừng (nếu có thể) */
+  table, h4 {
+    page-break-inside: avoid;
+  }
+}

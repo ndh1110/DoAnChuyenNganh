@@ -23,7 +23,7 @@ const getAll = async () => {
  */
 const getByKhuVucId = async (khuVucId) => {
     try {
-        const response = await api.get(`${API_ENDPOINT}/khuvuc/${khuVucId}`);
+        const response = await api.get(`${API_ENDPOINT}/kiemtrakhuvuc/${khuVucId}`);
         return response.data;
     } catch (error) {
         console.error(`Lỗi khi lấy kiểm tra cho KVC ID ${khuVucId}:`, error.response || error);

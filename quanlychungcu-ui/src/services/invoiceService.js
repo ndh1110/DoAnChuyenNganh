@@ -89,7 +89,6 @@ const importInvoices = async (file) => {
     throw error;
   }
 };
-
 export const invoiceService = {
   getAll: getAllInvoices,
   getById: getInvoiceById,

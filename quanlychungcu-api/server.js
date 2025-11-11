@@ -10,9 +10,8 @@ const { pool, poolConnect } = require('./dbConfig');
 // =============================================
 const { protect, authorize } = require('./middleware/authMiddleware');
 
-
-// === Import Routes ===
-// (Tuyến đường công khai)
+// Import file route
+const billingRoutes = require('./routes/billing')
 const authRoutes = require('./routes/auth');
 
 // (Các tuyến đường nghiệp vụ)
@@ -124,7 +123,17 @@ app.use('/api/lichsucutru', protect, lichSuCuTruRoutes);
 app.use('/api/thongbao', protect, thongBaoRoutes);
 app.use('/api/thongbaonguoidung', protect, thongBaoNguoiDungRoutes);
 app.use('/api/thietbi', protect, thietBiNguoiDungRoutes);
-app.use('/api/trangthai', protect, trangThaiRoutes); // (Cần cho các form)
+app.use('/api/auditlog', protect, auditLogRoutes);
+app.use('/api/dieukhoan', protect, dieuKhoanRoutes);
+app.use('/api/nhanvien', protect, nhanVienRoutes);
+app.use('/api/khuvucchung', protect, khuVucChungRoutes);
+app.use('/api/lichtruc', protect, lichTrucRoutes);
+app.use('/api/phancong', protect, phanCongRoutes);
+app.use('/api/suco', protect, suCoRoutes);
+app.use('/api/kiemtrakhuvuc', protect, kiemTraKhuVucRoutes);
+app.use('/api/trangthai', protect, trangThaiRoutes);
+app.use('/api/billing', protect, billingRoutes);
+// Bạn có thể thêm các routes khác ở đây
 
 
 // === Khởi động Server ===

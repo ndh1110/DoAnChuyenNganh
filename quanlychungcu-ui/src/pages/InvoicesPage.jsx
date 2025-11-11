@@ -30,6 +30,9 @@ const InvoicesPage = () => {
   const [loading, setLoading] = useState(true); // <-- Dùng 1 state loading chung
   const [error, setError] = useState(null);
 
+  // --- 2. THÊM STATE MỚI CHO MODAL IMPORT ---
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
   // (Các state cho Form và Details)
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
@@ -185,6 +188,35 @@ const InvoicesPage = () => {
     }
   };
   // 7. Render UI
+  // --- 3. THÊM HANDLER MỚI CHO SUBMIT EXCEL ---
+  const handleImportSubmit = async (file) => {
+    try {
+      setImportLoading(true);
+      setError(null);
+      
+      // Gọi service (đã được cập nhật)
+      const result = await invoiceService.importInvoices(file);
+      
+      alert(result.message); // Hiển thị thông báo thành công
+      
+      // Nếu có lỗi, log ra console
+      if (result.failed > 0) {
+        console.warn('Các dòng bị lỗi khi import:', result.failedRecords);
+        alert(`Import thành công, nhưng có ${result.failed} dòng bị lỗi. Vui lòng kiểm tra Console (F12).`);
+      }
+
+      setIsImportModalOpen(false); // Đóng modal
+      loadData(); // Tải lại toàn bộ danh sách
+      
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.response?.data || err.message;
+      console.error("Lỗi khi import:", err);
+      setError(errorMsg); // Hiển thị lỗi
+      alert(`Lỗi: ${errorMsg}`);
+    } finally {
+      setImportLoading(false);
+    }
+  };
   return (
     <div className="invoices-page container mx-auto p-6">
       
@@ -230,7 +262,6 @@ const InvoicesPage = () => {
         )}
       </div>
       <hr className="mb-6" />
-
       {viewMode === 'list' ? (
         <>
           {loading && <div className="p-6 text-center text-blue-500">Đang tải dữ liệu...</div>}

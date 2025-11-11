@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { authService } from '../services/authService';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext'; // 1. Import useAuth
 
 function LoginPage() {
   const [formData, setFormData] = useState({ Email: '', Password: '' });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  
+  const { login } = useAuth(); // 2. Lấy hàm login từ Context
 
-  const { login } = useAuth();
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -20,15 +20,16 @@ function LoginPage() {
     setError(null);
     
     try {
-      // 3. Gọi hàm login từ Context
+      // 3. Gọi hàm login TỪ CONTEXT
+      // (Nó sẽ tự cập nhật state toàn cục VÀ gọi authService)
       await login(formData);
       
       // 4. Chuyển hướng
-      // (Không cần reload vì Context sẽ tự động cập nhật UI)
+      // (Không cần reload, Context sẽ lo việc cập nhật UI)
       navigate('/blocks', { replace: true });
 
     } catch (err) {
-      const errorMsg = err.response?.data || err.message || 'Lỗi không xác định';
+      const errorMsg = err.response?.data?.message || err.response?.data || 'Email hoặc Mật khẩu không đúng';
       setError(errorMsg);
       setLoading(false);
     }

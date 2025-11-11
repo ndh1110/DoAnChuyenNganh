@@ -6,7 +6,7 @@ import React from 'react';
  * - Chỉ nhận props từ cha (BlocksPage) và hiển thị.
  * - Phát sự kiện onEdit, onDelete lên cho cha xử lý.
  */
-function BlockList({ blocks, onEdit, onDelete, isLoading }) {
+function BlockList({ blocks, onEdit, onDelete, isLoading, canManage }) {
   
   if (isLoading) {
     return <div>Đang tải danh sách block...</div>;
@@ -23,7 +23,8 @@ function BlockList({ blocks, onEdit, onDelete, isLoading }) {
           <th>Mã Block</th>
           <th>Tên Block</th>
           <th>Số Tầng</th>
-          <th>Hành Động</th>
+          {/* 2. Ẩn/hiện cả cột Hành Động */}
+          {canManage && <th className="py-2 px-4 border-b text-left">Hành Động</th>}
         </tr>
       </thead>
       <tbody>
@@ -32,17 +33,18 @@ function BlockList({ blocks, onEdit, onDelete, isLoading }) {
             <td>{block.MaBlock}</td>
             <td>{block.TenBlock}</td>
             <td>{block.SoTang || 'N/A'}</td>
-            <td className="actions">
-              {/* Khi click, gọi hàm từ props và truyền "block" 
-                (hoặc MaBlock) lên cho component cha (BlocksPage)
-              */}
-              <button onClick={() => onEdit(block)} className="btn-edit">
-                Sửa
-              </button>
-              <button onClick={() => onDelete(block.MaBlock)} className="btn-delete">
-                Xóa
-              </button>
-            </td>
+            
+            {/* 3. Ẩn/hiện các nút Sửa/Xóa */}
+            {canManage && (
+              <td className="actions">
+                <button onClick={() => onEdit(block)} className="btn-edit">
+                  Sửa
+                </button>
+                <button onClick={() => onDelete(block.MaBlock)} className="btn-delete">
+                  Xóa
+                </button>
+              </td>
+            )}
           </tr>
         ))}
       </tbody>

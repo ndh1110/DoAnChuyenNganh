@@ -1,51 +1,46 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authService } from '../services/authService';
-import { jwtDecode } from 'jwt-decode'; // Cài đặt: npm install jwt-decode
 
 // 1. Tạo Context
 const AuthContext = createContext(null);
 
 // 2. Tạo Provider (Component "Cha" bọc App)
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(null); // Sẽ chứa { id, email, name, role }
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loading, setLoading] = useState(true); // Thêm state loading
+  const [loading, setLoading] = useState(true); // State loading để kiểm tra auth
 
-  // 3. Kiểm tra token khi app tải lần đầu
+  // 3. Kiểm tra localStorage khi app tải lần đầu
   useEffect(() => {
     try {
+      // Dùng service đã cập nhật
       const token = authService.getCurrentToken();
-      if (token) {
-        // Giải mã token để lấy thông tin user (ví dụ: { id, email, name })
-        const decodedUser = jwtDecode(token);
-        
-        // (Tùy chọn) Kiểm tra xem token đã hết hạn chưa
-        // const isExpired = decodedUser.exp * 1000 < Date.now();
-        // if (isExpired) throw new Error("Token expired");
+      const storedUser = authService.getCurrentUser();
 
-        setUser(decodedUser);
+      if (token && storedUser) {
+        // (Bạn có thể thêm logic giải mã token (jwt-decode) để kiểm tra hết hạn ở đây)
+        setUser(storedUser);
         setIsLoggedIn(true);
       }
     } catch (error) {
-      console.error("Token không hợp lệ hoặc đã hết hạn:", error);
-      authService.logout(); // Dọn dẹp token hỏng (nếu có)
+      console.error("Lỗi khi tải thông tin xác thực:", error);
+      authService.logout(); // Dọn dẹp
     } finally {
-      setLoading(false); // Dừng loading sau khi kiểm tra xong
+      setLoading(false); // Đã kiểm tra xong
     }
   }, []);
 
   // 4. Hàm Login (cập nhật state sau khi gọi service)
   const login = async (credentials) => {
     try {
-      // Service vẫn làm nhiệm vụ gọi API và lưu token
+      // Service sẽ gọi API và lưu vào localStorage
       const data = await authService.login(credentials);
       
-      // Giải mã token mới
-      const decodedUser = jwtDecode(data.token);
-      setUser(decodedUser);
+      // Cập nhật state toàn cục
+      setUser(data.user);
       setIsLoggedIn(true);
       
-      return data; // Trả về data cho trang Login (nếu cần)
+      return data;
     } catch (error) {
       throw error; // Ném lỗi ra để trang Login xử lý
     }
@@ -56,23 +51,21 @@ export const AuthProvider = ({ children }) => {
     authService.logout();
     setUser(null);
     setIsLoggedIn(false);
-    // Chuyển hướng sẽ được xử lý ở component
   };
 
   // 6. Cung cấp state và hàm cho các component con
   const value = {
-    user,
+    user, // <-- QUAN TRỌNG: chứa role
     isLoggedIn,
-    loading, // Cung cấp state loading
+    loading,
     login,
     logout,
   };
 
-  // Chỉ render children khi đã kiểm tra auth xong
-  // (Tránh trường hợp Navbar hiển thị "Login" rồi nhảy sang "Logout")
+  // Chỉ render app khi đã kiểm tra auth xong
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children} 
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

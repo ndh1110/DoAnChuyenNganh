@@ -1,22 +1,20 @@
 // middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
 
+// 1. HÀM PROTECT (Giữ nguyên)
+// Hàm này kiểm tra Token có hợp lệ không và gắn req.user
 const protect = (req, res, next) => {
     let token;
     
-    // Kiểm tra xem header Authorization có tồn tại và bắt đầu bằng 'Bearer' không
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         try {
-            // Lấy token (loại bỏ 'Bearer ')
             token = req.headers.authorization.split(' ')[1];
-
-            // Xác thực token
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             
-            // Gắn thông tin người dùng (user) vào request để các API sau có thể dùng
+            // Lấy thông tin (bao gồm cả 'role') từ token
             req.user = decoded; 
             
-            next(); // Cho phép đi tiếp
+            next(); // Đi tiếp
         } catch (error) {
             console.error(error);
             res.status(401).send('Xác thực thất bại, token không hợp lệ');
@@ -28,4 +26,22 @@ const protect = (req, res, next) => {
     }
 };
 
-module.exports = { protect };
+// =============================================
+// ⭐ HÀM MỚI: AUTHORIZE (Kiểm tra vai trò)
+// =============================================
+const authorize = (...allowedRoles) => {
+  return (req, res, next) => {
+    // req.user được gán từ hàm 'protect'
+    // allowedRoles là một mảng, ví dụ: ['Admin', 'Quản lý']
+    
+    if (!req.user || !allowedRoles.includes(req.user.role)) {
+      // Nếu vai trò của người dùng không nằm trong danh sách được phép
+      return res.status(403).send('Forbidden: Bạn không có quyền truy cập chức năng này');
+    }
+    
+    // Nếu vai trò hợp lệ, cho đi tiếp
+    next(); 
+  };
+};
+
+module.exports = { protect, authorize }; // 👈 Cập nhật export

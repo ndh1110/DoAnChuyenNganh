@@ -61,7 +61,7 @@ const loginUser = async (req, res) => {
             .query('SELECT * FROM dbo.NguoiDung WHERE Email = @Email');
 
         if (userResult.recordset.length === 0) {
-            return res.status(401).send('Email hoặc Mật khẩu không đúng'); // (Lỗi 401: Unauthorized)
+            return res.status(401).send('Email hoặc Mật khẩu không đúng');
         }
         
         const user = userResult.recordset[0];
@@ -73,22 +73,38 @@ const loginUser = async (req, res) => {
             return res.status(401).send('Email hoặc Mật khẩu không đúng');
         }
 
-        // 3. Tạo và trả về JWT
+        // =============================================
+        // ⭐ LOGIC MỚI: LẤY VAI TRÒ (ROLE)
+        // =============================================
+        let userRole = "Resident"; // Mặc định là Cư dân
+
+        const roleResult = await pool.request()
+            .input('MaNguoiDung', mssql.Int, user.MaNguoiDung)
+            .query('SELECT ChucVu FROM dbo.NhanVien WHERE MaNguoiDung = @MaNguoiDung'); // [cite: 35]
+
+        if (roleResult.recordset.length > 0) {
+            userRole = roleResult.recordset[0].ChucVu; // Ví dụ: "Kỹ thuật", "Quản lý"
+        }
+        // (Nếu bạn muốn có "Admin", bạn cần thêm 1 người dùng với ChucVu = 'Admin')
+
+        // 3. Tạo và trả về JWT (Đã thêm 'role' vào payload)
         const tokenPayload = {
             id: user.MaNguoiDung,
             email: user.Email,
-            name: user.HoTen
+            name: user.HoTen,
+            role: userRole // 👈 ĐÃ THÊM VAI TRÒ VÀO TOKEN
         };
         
         const token = jwt.sign(
             tokenPayload, 
             process.env.JWT_SECRET, 
-            { expiresIn: '1d' } // Token hết hạn sau 1 ngày
+            { expiresIn: '1d' }
         );
 
         res.json({
             message: "Đăng nhập thành công",
-            token: token
+            token: token,
+            user: tokenPayload // Gửi kèm thông tin user để Frontend sử dụng
         });
 
     } catch (err) {

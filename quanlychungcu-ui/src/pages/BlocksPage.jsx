@@ -7,6 +7,7 @@ import { blockService } from '../services/blockService';
 // 2. Import các Component "Ngốc"
 import BlockList from '../components/BlockList';
 import BlockForm from '../components/BlockForm'; // Chỉ cần import BlockForm
+import { useAuth } from '../context/AuthContext'; // <-- 1. IMPORT USEAUTH
 
 // KHÔNG CẦN import BlockSetupForm
 
@@ -23,6 +24,11 @@ function BlocksPage() {
   
   // STATE MỚI: Xác định modal đang ở chế độ nào
   const [modalMode, setModalMode] = useState('crud'); // 'crud' hoặc 'setup'
+
+  const { user } = useAuth(); // <-- 2. LẤY USER (CHỨA ROLE) TỪ CONTEXT
+  
+  // 3. Xác định quyền (dựa trên backend)
+  const canManageBlocks = user?.role === 'Quản lý';
 
   // === 4. Logic (useEffect) ===
   const loadBlocks = useCallback(async () => {
@@ -131,16 +137,22 @@ function BlocksPage() {
     <div className="page-container">
       <div className="page-header">
         <h2>Quản lý Chung Cư (Block)</h2>
-        <div>
-          <button onClick={handleAddNew} className="btn-add-new">
-            + Thêm Block (Đơn)
-          </button>
-          
-          {/* NÚT MỚI ĐỂ MỞ MODAL SETUP */}
-          <button onClick={handleOpenSetupModal} className="btn-add-new-setup" style={{marginLeft: '10px', background: '#007bff'}}>
-            + Thêm Nâng Cao (Setup)
-          </button>
-        </div>
+        
+        {/* 4. CHỈ HIỂN THỊ NÚT NẾU CÓ QUYỀN */}
+        {canManageBlocks && (
+          <div>
+            <button onClick={handleAddNew} className="btn-add-new">
+              + Thêm Block (Đơn)
+            </button>
+            <button 
+              onClick={handleOpenSetupModal} 
+              className="btn-add-new-setup" 
+              style={{marginLeft: '10px', background: '#007bff'}}
+            >
+              + Thêm Nâng Cao (Setup)
+            </button>
+          </div>
+        )}
       </div>
 
       {error && <div className="error-message">Lỗi: {error}</div>}
@@ -150,11 +162,9 @@ function BlocksPage() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         isLoading={loading}
+        canManage={canManageBlocks} // <-- 5. Truyền quyền xuống component "ngốc"
       />
       
-      {/* 7. Render Modal (Form) DUY NHẤT
-        Truyền `mode` và `onSubmit` mới
-      */}
       <BlockForm
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -163,8 +173,6 @@ function BlocksPage() {
         isLoading={formLoading}
         mode={modalMode} 
       />
-      
-      {/* KHÔNG CẦN BlockSetupForm NỮA */}
     </div>
   );
 }

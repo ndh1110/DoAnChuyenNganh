@@ -2,29 +2,25 @@ import api from './api';
 
 /**
  * Lớp Service: Chứa tất cả các hàm gọi API liên quan đến "Auth"
- * Sử dụng API endpoints: /api/auth
  */
 
 /**
  * Gọi API đăng nhập
- * @param {object} credentials - { Email, Password }
  */
 const login = async (credentials) => {
-  // api.js sẽ tự động thêm /api
   const response = await api.post('/auth/login', credentials);
   
-  // Nếu thành công, lưu token vào localStorage
+  // SỬA: Lưu cả token và user object
   if (response.data && response.data.token) {
     localStorage.setItem('token', response.data.token);
-    // Bạn cũng có thể lưu thông tin user nếu API trả về
-    // localStorage.setItem('user', JSON.stringify(response.data.user)); 
+    // API của bạn trả về { token, user: {...} }
+    localStorage.setItem('user', JSON.stringify(response.data.user)); 
   }
   return response.data;
 };
 
 /**
  * Gọi API đăng ký
- * @param {object} userData - { HoTen, Email, SoDienThoai, Password }
  */
 const register = async (userData) => {
   return await api.post('/auth/register', userData);
@@ -32,12 +28,11 @@ const register = async (userData) => {
 
 /**
  * Đăng xuất
- * Xóa token khỏi localStorage
  */
 const logout = () => {
+  // SỬA: Xóa cả token và user
   localStorage.removeItem('token');
-  // localStorage.removeItem('user');
-  // (Không cần gọi API, chỉ cần xóa token ở client)
+  localStorage.removeItem('user');
 };
 
 /**
@@ -47,9 +42,19 @@ const getCurrentToken = () => {
   return localStorage.getItem('token');
 };
 
+/**
+ * Lấy user object hiện tại (nếu có)
+ */
+const getCurrentUser = () => {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
+};
+
+// Cập nhật export
 export const authService = {
   login,
   register,
   logout,
   getCurrentToken,
+  getCurrentUser, // <-- Thêm hàm mới
 };

@@ -1,3 +1,4 @@
+// src/services/apartmentService.js
 import api from './api';
 
 /**
@@ -28,7 +29,7 @@ const getApartmentById = async (id) => {
 };
 
 // Tạo Căn hộ mới
-// apartmentData là { MaTang: 1, SoCanHo: "101", ... }
+// apartmentData là { MaTang: 1, SoCanHo: "A.01.01", ... }
 const createApartment = async (apartmentData) => {
   try {
     const response = await api.post('/canho', apartmentData);
@@ -62,6 +63,24 @@ const deleteApartment = async (id) => {
   }
 };
 
+// HÀM MỚI: Import Excel
+// formData là một đối tượng FormData chứa file
+const importExcel = async (formData) => {
+  try {
+    // Gửi request với header 'multipart/form-data'
+    const response = await api.post('/canho/import-excel', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data; // Trả về { message: "..." }
+  } catch (error) {
+    console.error("Lỗi khi import excel căn hộ:", error.response || error);
+    // Ném lỗi ra để Page có thể bắt và hiển thị (vd: lỗi validation)
+    throw error;
+  }
+};
+
 // Export tất cả các hàm
 export const apartmentService = {
   getAll: getAllApartments,
@@ -69,4 +88,5 @@ export const apartmentService = {
   create: createApartment,
   update: updateApartment,
   delete: deleteApartment,
+  importExcel: importExcel, // THÊM HÀM MỚI
 };

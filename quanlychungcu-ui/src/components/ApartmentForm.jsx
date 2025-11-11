@@ -1,11 +1,29 @@
+// src/components/ApartmentForm.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 
-/**
- * Component "Ngốc" (Dumb Component)
- * - Form dùng cho Create và Update Căn hộ.
- * - Nhận `blocks` và `floors` (TẤT CẢ) từ cha.
- * - Tự quản lý state nội bộ của form, bao gồm cả logic dropdown phụ thuộc.
- */
+// Định nghĩa các loại căn hộ và diện tích mặc định
+const apartmentTypes = [
+  { type: "1 phòng ngủ", area: 51 },
+  { type: "2 phòng ngủ", area: 69 },
+  { type: "3 phòng ngủ", area: 108 },
+  { type: "Penthouse", area: 200 }
+];
+const areaMap = new Map(apartmentTypes.map(t => [t.type, t.area]));
+
+// HÀM HELPER: Tách số thứ tự từ mã căn hộ
+// Ví dụ: "A.02.03" -> "3" | "B.10.12" -> "12" | "101" -> "101"
+const getSoThuTu = (soCanHoStr) => {
+  if (!soCanHoStr) return '';
+  const parts = soCanHoStr.split('.');
+  // Nếu là định dạng A.02.03
+  if (parts.length === 3 && !isNaN(parseInt(parts[2], 10))) {
+    return parseInt(parts[2], 10).toString(); // Trả về "3"
+  }
+  // Nếu là định dạng khác (ví dụ "101"), trả về chính nó
+  return soCanHoStr;
+};
+
+
 function ApartmentForm({ 
   isOpen, onClose, onSubmit, isLoading, 
   initialData, 
@@ -17,8 +35,10 @@ function ApartmentForm({
   // State nội bộ của form
   const [formData, setFormData] = useState({
     MaTang: '',
-    SoCanHo: '',
-    MaTrangThai: ''
+    SoThuTu: '', // Đổi tên từ SoCanHo
+    MaTrangThai: '',
+    LoaiCanHo: '',
+    DienTich: ''
   });
   
   // State cho dropdown phụ thuộc
@@ -36,11 +56,15 @@ function ApartmentForm({
   useEffect(() => {
     if (isOpen) {
       if (isEditMode) {
-        // Nếu là EDIT
+        // Nếu là EDIT, TÁCH SỐ THỨ TỰ
+        const soThuTu = getSoThuTu(initialData.SoCanHo);
+        
         setFormData({
           MaTang: initialData.MaTang,
-          SoCanHo: initialData.SoCanHo,
-          MaTrangThai: initialData.MaTrangThai || ''
+          SoThuTu: soThuTu, // DÙNG SỐ ĐÃ TÁCH
+          MaTrangThai: initialData.MaTrangThai || '',
+          LoaiCanHo: initialData.LoaiCanHo || '',
+          DienTich: initialData.DienTich || ''
         });
         
         // Tìm MaBlock tương ứng với MaTang của căn hộ đang sửa
@@ -52,7 +76,7 @@ function ApartmentForm({
         }
       } else {
         // Nếu là CREATE, reset form
-        setFormData({ MaTang: '', SoCanHo: '', MaTrangThai: ''});
+        setFormData({ MaTang: '', SoThuTu: '', MaTrangThai: '', LoaiCanHo: '', DienTich: ''});
         setSelectedBlockId('');
       }
     }
@@ -62,6 +86,17 @@ function ApartmentForm({
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // 2b. XỬ LÝ KHI CHỌN LOẠI CĂN HỘ (Tự động điền diện tích)
+  const handleTypeChange = (e) => {
+    const newType = e.target.value;
+    const defaultArea = areaMap.get(newType) || ''; // Lấy diện tích mặc định
+    setFormData(prev => ({
+      ...prev,
+      LoaiCanHo: newType,
+      DienTich: defaultArea // Tự điền diện tích
+    }));
   };
 
   // 3. Xử lý khi đổi Block
@@ -74,16 +109,18 @@ function ApartmentForm({
   // 4. Xử lý submit
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (isLoading || !formData.MaTang || !formData.SoCanHo) {
-      alert("Vui lòng chọn Tầng và nhập Số Căn Hộ.");
+    if (isLoading || !formData.MaTang || !formData.SoThuTu) {
+      alert("Vui lòng chọn Tầng và nhập Số Thứ Tự Căn Hộ.");
       return;
     }
     // Gửi dữ liệu (đã chuẩn hóa) lên cha
     onSubmit({
       ...formData,
       MaTang: parseInt(formData.MaTang),
-      // Đảm bảo các trường rỗng được gửi là NULL (nếu backend yêu cầu)
-      MaTrangThai: formData.MaTrangThai ? parseInt(formData.MaTrangThai) : null
+      SoThuTu: formData.SoThuTu.trim(), // GỬI SoThuTu LÊN
+      MaTrangThai: formData.MaTrangThai ? parseInt(formData.MaTrangThai) : null,
+      DienTich: formData.DienTich ? parseFloat(formData.DienTich) : null,
+      LoaiCanHo: formData.LoaiCanHo || null
     });
   };
 
@@ -91,7 +128,7 @@ function ApartmentForm({
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content large"> {/* Thêm class "large" nếu form dài */}
+      <div className="modal-content large">
         <button onClick={onClose} className="modal-close-btn" disabled={isLoading}>
           &times;
         </button>
@@ -126,7 +163,7 @@ function ApartmentForm({
               value={formData.MaTang}
               onChange={handleChange}
               required
-              disabled={!selectedBlockId || isLoading} // Vô hiệu hóa khi chưa chọn block
+              disabled={!selectedBlockId || isLoading}
             >
               <option value="">-- Chọn Tầng --</option>
               {availableFloors.map(floor => (
@@ -139,16 +176,48 @@ function ApartmentForm({
           
           {/* ----- Các trường dữ liệu khác ----- */}
           <div className="form-group">
-            <label htmlFor="SoCanHo">Số Căn Hộ (*)</label>
+            <label htmlFor="SoThuTu">Số Thứ Tự Căn Hộ (*)</label>
             <input
               type="text"
-              id="SoCanHo"
-              name="SoCanHo"
-              value={formData.SoCanHo}
+              id="SoThuTu"
+              name="SoThuTu"
+              value={formData.SoThuTu}
               onChange={handleChange}
               required
               disabled={isLoading}
-              placeholder="Ví dụ: 101, A-202,..."
+              placeholder="Ví dụ: 3 (sẽ thành .03) hoặc 10 (sẽ thành .10)"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="LoaiCanHo">Loại Căn Hộ</label>
+            <select
+              id="LoaiCanHo"
+              name="LoaiCanHo"
+              value={formData.LoaiCanHo}
+              onChange={handleTypeChange}
+              disabled={isLoading}
+            >
+              <option value="">-- Chọn loại căn hộ --</option>
+              {apartmentTypes.map(t => (
+                <option key={t.type} value={t.type}>
+                  {t.type}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="DienTich">Diện Tích (m²)</label>
+            <input
+              type="number"
+              step="0.01"
+              id="DienTich"
+              name="DienTich"
+              value={formData.DienTich}
+              onChange={handleChange}
+              disabled={isLoading}
+              placeholder="Ví dụ: 51"
             />
           </div>
           
@@ -157,12 +226,11 @@ function ApartmentForm({
             <select
               id="MaTrangThai"
               name="MaTrangThai"
-              value={formData.MaTrangThai} // Sẽ là ID (vd: 8) hoặc ""
+              value={formData.MaTrangThai}
               onChange={handleChange}
               disabled={isLoading}
             >
               <option value="">-- Không xác định (NULL) --</option>
-              {/* Lặp qua danh sách trạng thái đã lọc từ cha */}
               {apartmentStatuses.map(status => (
                 <option key={status.MaTrangThai} value={status.MaTrangThai}>
                   {status.Ten}

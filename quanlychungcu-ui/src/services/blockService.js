@@ -1,4 +1,4 @@
-// 1. Import instance 'api' đã được cấu hình (từ file api.js)
+// src/services/blockService.js
 import api from './api';
 
 /**
@@ -65,6 +65,8 @@ const deleteBlock = async (id) => {
   }
 };
 
+// Hàm mới để gọi API setup
+// setupData là object: { TenBlock, SoTang, TongSoCanHo }
 const setupBlock = async (setupData) => {
   try {
     const response = await api.post('/block/setup', setupData);
@@ -83,5 +85,4 @@ export const blockService = {
   update: updateBlock,
   delete: deleteBlock,
   setup: setupBlock, // Thêm hàm mới vào export
-
 };

@@ -1,13 +1,9 @@
 // src/components/BlockForm.jsx
-
 import React, { useState, useEffect } from 'react';
 
 /**
  * Component "Ngốc" (Dumb Component) - ĐÃ NÂNG CẤP
  * - Form này dùng cho cả Create, Update (mode='crud') VÀ Setup (mode='setup').
- * - Nó nhận `initialData` (chỉ dùng cho 'crud' edit).
- * - Nó nhận `mode` để biết hiển thị field nào.
- * - Khi submit, nó gọi hàm `onSubmit` từ props (truyền data lên cho cha là BlocksPage).
  */
 function BlockForm({ isOpen, onClose, onSubmit, initialData, isLoading, mode = 'crud' }) {
   
@@ -20,7 +16,6 @@ function BlockForm({ isOpen, onClose, onSubmit, initialData, isLoading, mode = '
 
   // Xác định các chế độ
   const isSetupMode = mode === 'setup';
-  // Chế độ Sửa (chỉ khi mode='crud' VÀ có initialData)
   const isEditMode = !isSetupMode && Boolean(initialData);
 
   // 1. Đồng bộ props `initialData` hoặc reset form
@@ -36,9 +31,9 @@ function BlockForm({ isOpen, onClose, onSubmit, initialData, isLoading, mode = '
       // Nếu là Tạo mới 'crud' HOẶC là 'setup', reset toàn bộ form
       setFormData({ TenBlock: '', SoTang: '', TongSoCanHo: '' });
     }
-  }, [initialData, isOpen, mode]); // Chạy lại khi mode, data, hoặc modal thay đổi
+  }, [initialData, isOpen, mode]);
 
-  // 2. Xử lý input change (không đổi)
+  // 2. Xử lý input change
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -51,14 +46,17 @@ function BlockForm({ isOpen, onClose, onSubmit, initialData, isLoading, mode = '
     
     // Validation riêng cho mode 'setup'
     if (isSetupMode) {
+      if (!formData.TenBlock || !formData.SoTang || !formData.TongSoCanHo) {
+         alert("Vui lòng điền đầy đủ thông tin.");
+         return;
+      }
       if (parseInt(formData.TongSoCanHo) % parseInt(formData.SoTang) !== 0) {
         alert("Lỗi: Tổng số căn hộ phải chia hết cho số tầng.");
         return;
       }
     }
     
-    // Gọi hàm submit từ props (truyền TẤT CẢ formData lên cho cha)
-    // BlocksPage sẽ tự quyết định dùng trường nào
+    // Gọi hàm submit từ props
     onSubmit(formData);
   };
 

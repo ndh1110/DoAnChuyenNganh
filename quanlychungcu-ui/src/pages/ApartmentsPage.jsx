@@ -1,21 +1,38 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+// src/pages/ApartmentsPage.jsx
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
-// 1. Import cả 4 Lớp Service
+// 1. Import Lớp Service
 import { apartmentService } from '../services/apartmentService';
 import { blockService } from '../services/blockService';
 import { floorService } from '../services/floorService';
-import { statusService } from '../services/statusService'; // <-- ĐÃ SỬA
+import { statusService } from '../services/statusService'; 
 
 // 2. Import các Component "Ngốc"
 import ApartmentList from '../components/ApartmentList';
 import ApartmentForm from '../components/ApartmentForm';
+
+// HÀM HELPER: Tạo Mã Căn Hộ (ĐÃ SỬA)
+const generateApartmentCode = (block, floor, soThuTu) => {
+  if (!block || !floor || !soThuTu) {
+    throw new Error("Dữ liệu không hợp lệ để tạo mã căn hộ.");
+  }
+  
+  // Tách "Block A" -> "A" hoặc "E" -> "E"
+  const tenBlockParts = block.TenBlock.split(' ');
+  const tenBlock = tenBlockParts[tenBlockParts.length - 1]; // Lấy phần tử cuối
+  
+  const soTangStr = String(floor.SoTang).padStart(2, '0'); // "2" -> "02"
+  const soThuTuStr = String(soThuTu).padStart(2, '0'); // "3" -> "03"
+  
+  return `${tenBlock}.${soTangStr}.${soThuTuStr}`; // "A.02.03"
+};
 
 function ApartmentsPage() {
   // === 3. Quản lý State ===
   const [allApartments, setAllApartments] = useState([]);
   const [allBlocks, setAllBlocks] = useState([]);
   const [allFloors, setAllFloors] = useState([]);
-  const [apartmentStatuses, setApartmentStatuses] = useState([]); // <-- STATE MỚI
+  const [apartmentStatuses, setApartmentStatuses] = useState([]); 
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,7 +45,13 @@ function ApartmentsPage() {
   // State cho Bộ lọc (Filters)
   const [filterBlockId, setFilterBlockId] = useState('');
   const [filterFloorId, setFilterFloorId] = useState('');
-  const [filterStatusId, setFilterStatusId] = useState(''); // <-- STATE MỚI CHO LỌC
+  const [filterStatusId, setFilterStatusId] = useState('');
+  const [filterLoaiCanHo, setFilterLoaiCanHo] = useState(''); // <-- STATE MỚI
+
+  // STATE MỚI CHO IMPORT
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef(null); 
 
   // === 4. Logic (useEffect) ===
   
@@ -37,19 +60,17 @@ function ApartmentsPage() {
       setLoading(true);
       setError(null);
       
-      // Chạy song song 4 yêu cầu API
       const [apartmentsData, blocksData, floorsData, statusesData] = await Promise.all([
         apartmentService.getAll(),
         blockService.getAll(),
         floorService.getAll(),
-        // SỬA Ở ĐÂY: Gọi API mới theo context
         statusService.getByContext('APARTMENT') 
       ]);
       
       setAllApartments(apartmentsData);
       setAllBlocks(blocksData);
       setAllFloors(floorsData);
-      setApartmentStatuses(statusesData); // <-- LƯU STATE MỚI
+      setApartmentStatuses(statusesData); 
       
     } catch (err) {
       setError(err.message || "Lỗi khi tải dữ liệu ban đầu.");
@@ -64,18 +85,23 @@ function ApartmentsPage() {
 
   // === 5. Logic Lọc và "Làm giàu" Dữ liệu (useMemo) ===
 
-  // Lọc danh sách tầng (cho BỘ LỌC)
   const filteredFloorsForFilter = useMemo(() => {
     if (!filterBlockId) return [];
     return allFloors.filter(f => f.MaBlock.toString() === filterBlockId);
   }, [filterBlockId, allFloors]);
 
+  // USEMEMO MỚI (Tạo danh sách lọc động)
+  const availableLoaiCanHo = useMemo(() => {
+    // Lấy tất cả các loại, lọc ra 'null'/'N/A' hoặc rỗng
+    const types = allApartments.map(apt => apt.LoaiCanHo).filter(Boolean);
+    // Lấy giá trị duy nhất và sắp xếp
+    return [...new Set(types)].sort();
+  }, [allApartments]);
+
   // Lọc và "làm giàu" danh sách căn hộ để hiển thị
   const hydratedAndFilteredApartments = useMemo(() => {
     const floorMap = new Map(allFloors.map(f => [f.MaTang, f]));
     const blockMap = new Map(allBlocks.map(b => [b.MaBlock, b]));
-
-    // API đã trả về TenTrangThai, KHÔNG CẦN TẠO statusMap nữa
 
     return allApartments
       .filter(apt => {
@@ -92,44 +118,48 @@ function ApartmentsPage() {
             return false;
           }
         }
-        // LỌC THEO TRẠNG THÁI (MỚI)
+        // LỌC THEO TRẠNG THÁI
         if (filterStatusId) {
-          // So sánh MaTrangThai (từ API Căn Hộ) với filterStatusId
           if ((apt.MaTrangThai || '').toString() !== filterStatusId) {
+            return false;
+          }
+        }
+        
+        // LOGIC LỌC MỚI
+        if (filterLoaiCanHo) {
+          if (apt.LoaiCanHo !== filterLoaiCanHo) {
             return false;
           }
         }
         return true; 
       })
       .map(apt => {
-        // "Làm giàu" (Hydrate) Block và Tầng
         const floor = floorMap.get(apt.MaTang);
         const block = floor ? blockMap.get(floor.MaBlock) : null;
         
-        // TenTrangThai đã có sẵn từ API (apt.TenTrangThai)
-        // nên không cần "làm giàu" (hydrate) nữa.
-
         return {
           ...apt,
           SoTang: floor ? floor.SoTang : null,
           TenBlock: block ? block.TenBlock : null,
           MaBlock: block ? block.MaBlock : null,
-          // apt.TenTrangThai đã có sẵn
         };
       });
-  }, [allApartments, allBlocks, allFloors, filterBlockId, filterFloorId, filterStatusId]); // <-- Thêm filterStatusId
+  }, [
+      allApartments, allBlocks, allFloors, 
+      filterBlockId, filterFloorId, filterStatusId, 
+      filterLoaiCanHo // THÊM DEPENDENCY MỚI
+    ]);
 
   // === 6. Các Hàm Xử Lý Sự Kiện (Event Handlers) ===
-  // ... (handleAddNew, handleEdit, handleDelete, handleFormSubmit giữ nguyên) ...
-  const handleAddNew = () => { /* (giữ nguyên) */ 
+  const handleAddNew = () => { 
     setCurrentApartment(null);
     setIsModalOpen(true);
   };
-  const handleEdit = (apartment) => { /* (giữ nguyên) */ 
+  const handleEdit = (apartment) => { 
     setCurrentApartment(apartment);
     setIsModalOpen(true);
   };
-  const handleDelete = async (id) => { /* (giữ nguyên) */ 
+  const handleDelete = async (id) => { 
     if (window.confirm(`Bạn có chắc muốn xóa Căn hộ (ID: ${id})?`)) {
       try {
         setLoading(true);
@@ -137,38 +167,47 @@ function ApartmentsPage() {
         alert("Xóa Căn hộ thành công!");
         loadInitialData();
       } catch (err) {
-        setError(err.message || "Lỗi khi xóa Căn hộ.");
-        alert(`Lỗi khi xóa: ${error}`);
+        const errorMsg = err.response?.data || err.message || "Lỗi khi xóa Căn hộ.";
+        setError(errorMsg);
+        alert(`Lỗi khi xóa: ${errorMsg}`);
       } finally {
         setLoading(false);
       }
     }
   };
-    const handleFormSubmit = async (formData) => {
+
+  const handleFormSubmit = async (formData) => {
     try {
       setFormLoading(true);
       setError(null);
 
-      // Dữ liệu chuẩn bị gửi đi
+      const floor = allFloors.find(f => f.MaTang === formData.MaTang);
+      if (!floor) throw new Error("Không tìm thấy Tầng đã chọn.");
+      
+      const block = allBlocks.find(b => b.MaBlock === floor.MaBlock);
+      if (!block) throw new Error("Không tìm thấy Block tương ứng.");
+
+      const generatedSoCanHo = generateApartmentCode(block, floor, formData.SoThuTu);
+
       const dataToSubmit = {
-        MaTang: parseInt(formData.MaTang),
-        SoCanHo: formData.SoCanHo,
-        MaTrangThai: formData.MaTrangThai ? parseInt(formData.MaTrangThai) : null
+        MaTang: formData.MaTang,
+        SoCanHo: generatedSoCanHo,
+        MaTrangThai: formData.MaTrangThai,
+        LoaiCanHo: formData.LoaiCanHo,
+        DienTich: formData.DienTich
       };
 
       if (currentApartment) {
-        // --- Cập nhật (Update) ---
         await apartmentService.update(currentApartment.MaCanHo, dataToSubmit);
         alert("Cập nhật Căn hộ thành công!");
       } else {
-        // --- Tạo mới (Create) ---
         await apartmentService.create(dataToSubmit);
         alert("Tạo mới Căn hộ thành công!");
       }
 
       setIsModalOpen(false);
       setCurrentApartment(null);
-      loadInitialData(); // Tải lại toàn bộ
+      loadInitialData();
     } catch (err) {
       const errorMsg = err.response?.data?.message || err.message || "Lỗi khi lưu Căn hộ.";
       setError(errorMsg);
@@ -182,26 +221,87 @@ function ApartmentsPage() {
     setFilterFloorId('');
   }, [filterBlockId]);
 
+  const handleFileChange = (event) => {
+    setSelectedFile(event.target.files[0]);
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile) {
+      alert("Vui lòng chọn một file Excel (.xlsx) để import.");
+      return;
+    }
+
+    if (!window.confirm(`Bạn có chắc muốn import các căn hộ từ file: ${selectedFile.name}?`)) {
+      return;
+    }
+
+    setIsImporting(true);
+    setError(null);
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    try {
+      const result = await apartmentService.importExcel(formData);
+      alert(result.message);
+      loadInitialData();
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || "Lỗi khi import file.";
+      const errorDetails = err.response?.data?.errors 
+          ? `\nChi tiết:\n- ${err.response.data.errors.join('\n- ')}` 
+          : '';
+      setError(errorMsg + errorDetails);
+      alert(`LỖI IMPORT: ${errorMsg}${errorDetails}`);
+    } finally {
+      setIsImporting(false);
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   // === 7. Render Giao Diện ===
   return (
     <div className="page-container">
       <div className="page-header">
         <h2>Quản lý Căn Hộ</h2>
-        <button onClick={handleAddNew} className="btn-add-new">
+        <button onClick={handleAddNew} className="btn-add-new" disabled={isImporting}>
           + Thêm Căn Hộ Mới
         </button>
       </div>
 
+      <div className="import-container" style={{ padding: '10px 0', borderBottom: '1px solid #ccc', marginBottom: '15px' }}>
+        <h4>Import từ Excel</h4>
+        <p style={{margin: '5px 0', fontSize: '0.9em'}}>
+          File phải có 5 cột: <strong>Tên Block, Số Tầng, Số Thứ Tự, Loại Căn Hộ, Diện Tích</strong> (Bỏ qua dòng tiêu đề).
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <input 
+            type="file" 
+            ref={fileInputRef}
+            onChange={handleFileChange} 
+            accept=".xlsx, .xls"
+            disabled={isImporting}
+          />
+          <button 
+            onClick={handleImport} 
+            className="btn-submit" 
+            disabled={!selectedFile || isImporting}
+          >
+            {isImporting ? 'Đang import...' : 'Bắt đầu Import'}
+          </button>
+        </div>
+      </div>
+
       {/* --- Bộ lọc (Filters) --- */}
       <div className="filters-container">
-        {/* Lọc Block */}
         <div className="filter-item">
           <label htmlFor="filterBlock">Lọc theo Block: </label>
           <select 
             id="filterBlock" 
             value={filterBlockId} 
             onChange={(e) => setFilterBlockId(e.target.value)}
-            disabled={loading}
+            disabled={loading || isImporting}
           >
             <option value="">{loading ? 'Đang tải...' : 'Tất cả Block'}</option>
             {allBlocks.map(block => (
@@ -212,14 +312,13 @@ function ApartmentsPage() {
           </select>
         </div>
         
-        {/* Lọc Tầng */}
         <div className="filter-item">
           <label htmlFor="filterFloor">Lọc theo Tầng: </label>
           <select 
             id="filterFloor" 
             value={filterFloorId} 
             onChange={(e) => setFilterFloorId(e.target.value)}
-            disabled={!filterBlockId || loading} 
+            disabled={!filterBlockId || loading || isImporting} 
           >
             <option value="">Tất cả Tầng</option>
             {filteredFloorsForFilter.map(floor => (
@@ -230,14 +329,13 @@ function ApartmentsPage() {
           </select>
         </div>
         
-        {/* LỌC TRẠNG THÁI (MỚI) */}
         <div className="filter-item">
           <label htmlFor="filterStatus">Lọc theo Trạng Thái: </label>
           <select 
             id="filterStatus" 
             value={filterStatusId} 
             onChange={(e) => setFilterStatusId(e.target.value)}
-            disabled={loading}
+            disabled={loading || isImporting}
           >
             <option value="">Tất cả Trạng Thái</option>
             {apartmentStatuses.map(status => (
@@ -247,11 +345,28 @@ function ApartmentsPage() {
             ))}
           </select>
         </div>
+        
+        {/* <-- DROPDOWN LỌC MỚI --> */}
+        <div className="filter-item">
+          <label htmlFor="filterLoaiCanHo">Lọc theo Loại Căn Hộ: </label>
+          <select 
+            id="filterLoaiCanHo" 
+            value={filterLoaiCanHo} 
+            onChange={(e) => setFilterLoaiCanHo(e.target.value)}
+            disabled={loading || isImporting}
+          >
+            <option value="">Tất cả Các Loại</option>
+            {availableLoaiCanHo.map(loai => (
+              <option key={loai} value={loai}>
+                {loai}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {error && <div className="error-message">Lỗi: {error}</div>}
 
-      {/* 8. Truyền danh sách đã "làm giàu" xuống */}
       <ApartmentList
         apartments={hydratedAndFilteredApartments}
         onEdit={handleEdit}
@@ -259,7 +374,6 @@ function ApartmentsPage() {
         isLoading={loading}
       />
       
-      {/* 9. Truyền apartmentStatuses xuống Form */}
       <ApartmentForm
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -268,7 +382,7 @@ function ApartmentsPage() {
         initialData={currentApartment}
         allBlocks={allBlocks}
         allFloors={allFloors}
-        apartmentStatuses={apartmentStatuses} // <-- TRUYỀN PROP QUAN TRỌNG
+        apartmentStatuses={apartmentStatuses}
       />
     </div>
   );

@@ -1,87 +1,109 @@
 // src/components/InvoiceDetails.jsx
 import React from 'react';
+import '../styles/InvoicePrint.css'; 
 
-// "Dumb Component" - Chỉ nhận props và render
 const InvoiceDetails = ({ invoice, payments, onBack }) => {
 
-  // Không còn useState, useEffect, hay axios
-  
-  // Hàm tiện ích
   const formatCurrency = (amount) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   const formatDate = (dateString) => new Intl.DateTimeFormat('vi-VN').format(new Date(dateString));
+  const today = formatDate(new Date());
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   if (!invoice) {
       return <div className="p-4 text-center">Không tìm thấy chi tiết hóa đơn.</div>;
   }
 
-  // Tính toán số tiền
   const totalPaid = payments.reduce((sum, p) => sum + (p.ThanhTien || 0), 0);
   const remainingAmount = (invoice.TongTien || 0) - totalPaid;
 
   return (
-    <div className="invoice-details mt-6 p-4 border rounded-lg bg-gray-50">
-      <button onClick={onBack} className="mb-4 text-blue-600 hover:underline">&larr; Quay lại danh sách</button>
-      
-      <h3 className="text-2xl font-bold mb-4">Chi tiết Hóa đơn #{invoice.MaHoaDon}</h3>
-      
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div><strong>Căn hộ:</strong> {invoice.SoCanHo || `(Mã: ${invoice.MaCanHo})`}</div>
-        <div><strong>Kỳ:</strong> {formatDate(invoice.KyThang)}</div>
-        <div className="font-bold text-lg"><strong>Tổng cộng:</strong> {formatCurrency(invoice.TongTien)}</div>
-        <div className="font-bold text-lg text-green-600"><strong>Đã thanh toán:</strong> {formatCurrency(totalPaid)}</div>
-        <div className={`font-bold text-lg ${remainingAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-          <strong>Còn lại:</strong> {formatCurrency(remainingAmount)}
-        </div>
+    <div className="invoice-details-wrapper mt-6 p-4">
+      <div className="invoice-controls no-print mb-4 flex justify-between">
+        <button onClick={onBack} className="text-blue-600 hover:underline">
+          &larr; Quay lại danh sách
+        </button>
+        <button 
+          onClick={handlePrint} 
+          className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded shadow-md"
+        >
+          🖨️ In Hóa Đơn
+        </button>
       </div>
 
-      {/* --- Bảng Chi tiết Dịch vụ (Line Items) --- */}
-      {/* Giả định API GET /api/hoadon/:id trả về một mảng 'ChiTietHoaDons' */}
-      <h4 className="text-xl font-semibold mb-3 mt-8">Chi tiết Dịch vụ</h4>
-      <table className="min-w-full bg-white border">
-          <thead className="bg-gray-100">
-              <tr>
-                  <th className="py-2 px-4 border-b text-left">Dịch Vụ</th>
-                  <th className="py-2 px-4 border-b text-right">Thành Tiền</th>
+      <div id="invoice-document" className="bg-white p-8 rounded-lg shadow-lg">
+        <div className="invoice-header mb-8 flex justify-between items-center">
+          <h1 className="text-5xl font-bold text-teal-700">HÓA ĐƠN</h1>
+          <p className="text-lg text-gray-600">Ngày lập: {today}</p>
+        </div>
+
+        <div className="invoice-info mb-10 grid grid-cols-2 gap-y-2">
+          <div>
+            <p className="text-gray-700">Hóa đơn cho:</p>
+            <p className="font-semibold text-lg">{invoice.TenChuHo || 'Chủ hộ'}</p>
+            
+            {/* --- SỬA Ở ĐÂY: Hiển thị cả Số căn hộ và Mã căn hộ --- */}
+            <p className="text-gray-600">
+              Căn hộ: <span className="font-medium text-black">{invoice.SoCanHo}</span> (Mã: {invoice.MaCanHo})
+            </p>
+            
+            <p className="text-gray-600">Kỳ: {formatDate(invoice.KyThang)}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-gray-700">Thanh toán cho:</p>
+            <p className="font-semibold text-lg">Ban Quản lý An Nam</p>
+            <p className="text-gray-600">Hotline: +84 912 345 678</p>
+            <p className="text-gray-600">Email: bql@chungcuannam.vn</p>
+          </div>
+        </div>
+
+        <div className="invoice-items mb-8">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-teal-700 text-white">
+                <th className="py-3 px-4 text-left rounded-tl-lg">Mô tả</th>
+                <th className="py-3 px-4 text-center">Số lượng</th>
+                <th className="py-3 px-4 text-right">Đơn giá</th>
+                <th className="py-3 px-4 text-right rounded-tr-lg">Thành tiền</th>
               </tr>
-          </thead>
-          <tbody>
-              {invoice.ChiTietHoaDons && invoice.ChiTietHoaDons.map((detail) => (
-                  <tr key={detail.MaCT}>
-                      <td className="py-2 px-4 border-b">{detail.TenDichVu || `(Mã DV: ${detail.MaDichVu})`}</td>
-                      <td className="py-2 px-4 border-b text-right">{formatCurrency(detail.ThanhTien)}</td>
-                  </tr>
+            </thead>
+            <tbody>
+              {invoice.ChiTietHoaDons && invoice.ChiTietHoaDons.map((detail, index) => (
+                <tr key={detail.MaCT || index} className="border-b border-gray-200">
+                  <td className="py-3 px-4 text-left">{detail.TenDichVu || `(Mã DV: ${detail.MaDichVu})`}</td>
+                  <td className="py-3 px-4 text-center">{detail.SoLuong || 1}</td>
+                  <td className="py-3 px-4 text-right">{formatCurrency(detail.DonGia || detail.ThanhTien)}</td>
+                  <td className="py-3 px-4 text-right">{formatCurrency(detail.ThanhTien)}</td>
+                </tr>
               ))}
-          </tbody>
-      </table>
+              {(invoice.ChiTietHoaDons?.length === 0) && (
+                 <tr><td colSpan="4" className="py-4 text-center text-gray-500">Chưa có chi tiết dịch vụ.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
+        <div className="invoice-total text-right bg-gray-100 p-4 rounded-b-lg">
+          <p className="text-2xl font-bold text-teal-700">Tổng cộng: {formatCurrency(invoice.TongTien)}</p>
+        </div>
 
-      {/* --- Bảng Lịch sử Thanh toán (Từ props 'payments') --- */}
-      <h4 className="text-xl font-semibold mb-3 mt-8">Lịch sử Thanh toán</h4>
-      <table className="min-w-full bg-white border">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="py-2 px-4 border-b text-left">Mã TT</th>
-            <th className="py-2 px-4 border-b text-left">Ngày Thanh Toán</th>
-            <th className="py-2 px-4 border-b text-right">Số Tiền</th>
-          </tr>
-        </thead>
-        <tbody>
-          {payments.map((payment) => (
-            <tr key={payment.MaThanhToan}>
-              <td className="py-2 px-4 border-b">{payment.MaThanhToan}</td>
-              <td className="py-2 px-4 border-b">{formatDate(payment.NgayThanhToan)}</td>
-              <td className="py-2 px-4 border-b text-right font-medium">{formatCurrency(payment.ThanhTien)}</td>
-            </tr>
-          ))}
-          {payments.length === 0 && (
-            <tr>
-              <td colSpan="3" className="py-4 text-center text-gray-500">
-                Chưa có thanh toán nào cho hóa đơn này.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+        <div className="invoice-footer mt-10 p-6 bg-teal-700 text-white rounded-lg flex items-center justify-between">
+          <div className="flex items-center">
+            <span className="text-4xl mr-3">⚗️</span> 
+            <div>
+              <p className="font-bold text-xl">An Nam</p>
+              <p className="text-sm">Chữa lành bắt đầu từ đây.</p>
+            </div>
+          </div>
+          <div className="text-right text-sm">
+            <p>An Nam, 123 Đường ABC, Thành phố DEF</p>
+            <p>+84 912 345 678</p>
+            <p>bql@chungcuannam.vn</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

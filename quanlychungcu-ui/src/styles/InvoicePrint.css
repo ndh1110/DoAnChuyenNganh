@@ -1,0 +1,184 @@
+/* src/styles/InvoicePrint.css */
+
+/* Ẩn các thành phần không liên quan đến hóa đơn khi in */
+@media print {
+  body > div#root > div.App > header,
+  body > div#root > div.App > nav,
+  body > div#root > div.App > footer,
+  .invoice-controls.no-print { /* Nút back và in */
+    display: none !important;
+  }
+
+  /* Đảm bảo chỉ có nội dung hóa đơn được hiển thị */
+  body {
+    background-color: white !important; /* Đảm bảo nền trắng */
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden; /* Ngăn cuộn khi in */
+  }
+
+  #root {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .invoice-details-wrapper {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Chỉ hiển thị phần tử hóa đơn chính */
+  #invoice-document {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%; /* Chiếm toàn bộ chiều rộng trang */
+    min-height: 100vh; /* Đảm bảo đủ chiều cao trang */
+    margin: 0;
+    padding: 40px; /* Padding cho nội dung hóa đơn */
+    border: none;
+    box-shadow: none;
+    background-color: white !important;
+    color: black;
+  }
+
+  /* --- Các style riêng cho HÓA ĐƠN in --- */
+  .invoice-header {
+    margin-bottom: 40px;
+    align-items: flex-start; /* Để "HÓA ĐƠN" và "Ngày lập" không bị căn giữa */
+  }
+
+  .invoice-header h1 {
+    font-size: 3.5em; /* Lớn hơn */
+    color: #047857; /* Màu xanh teal đậm */
+    margin-bottom: 5px; /* Khoảng cách với ngày lập */
+  }
+
+  .invoice-header p {
+    font-size: 1.1em;
+    color: #4b5563; /* Gray-600 */
+  }
+
+  .invoice-info {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 40px;
+    margin-bottom: 50px;
+  }
+
+  .invoice-info p {
+    margin-bottom: 2px;
+  }
+
+  .invoice-info .text-right {
+    text-align: right;
+  }
+  
+  .invoice-info .text-right p:first-child { /* "Thanh toán cho:" */
+    margin-top: 0;
+  }
+
+  /* Bảng chi tiết dịch vụ */
+  .invoice-items table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 30px;
+  }
+
+  .invoice-items th, .invoice-items td {
+    padding: 12px 15px; /* Padding lớn hơn */
+    border: none; /* Bỏ border mặc định */
+  }
+
+  .invoice-items thead tr {
+    background-color: #047857; /* Nền xanh teal đậm */
+    color: white;
+    border-radius: 8px 8px 0 0; /* Bo góc trên */
+  }
+  
+  .invoice-items thead th:first-child { border-top-left-radius: 8px; }
+  .invoice-items thead th:last-child { border-top-right-radius: 8px; }
+
+  .invoice-items tbody tr {
+    background-color: #f9fafb; /* Nền xám nhạt */
+  }
+  
+  .invoice-items tbody tr:nth-child(even) {
+    background-color: #eff6ff; /* Màu xen kẽ (blue-50) */
+  }
+
+  .invoice-items tbody tr:last-child {
+    border-bottom: none; /* Bỏ border dưới cùng */
+  }
+
+  /* Tổng cộng */
+  .invoice-total {
+    background-color: #f3f4f6; /* Gray-100 */
+    padding: 20px 30px;
+    border-radius: 0 0 8px 8px; /* Bo góc dưới */
+    margin-top: -1px; /* Để liền với bảng */
+  }
+
+  .invoice-total p {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #047857;
+  }
+
+  /* Footer hóa đơn */
+  .invoice-footer {
+    background-color: #047857; /* Xanh teal đậm */
+    color: white;
+    padding: 30px;
+    border-radius: 8px;
+    margin-top: 60px; /* Khoảng cách lớn hơn */
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end; /* Căn dưới cùng */
+  }
+  
+  .invoice-footer span {
+      font-size: 3em; /* Icon lớn hơn */
+      line-height: 1; /* Căn chỉnh với text */
+  }
+
+  .invoice-footer .text-sm p {
+    margin-bottom: 2px;
+  }
+
+  /* Đảm bảo không bị ngắt trang giữa các khối quan trọng */
+  #invoice-document .invoice-header,
+  #invoice-document .invoice-info,
+  #invoice-document .invoice-items,
+  #invoice-document .invoice-total,
+  #invoice-document .invoice-footer {
+    page-break-inside: avoid;
+  }
+
+  /* Xử lý hình nền logo mờ */
+  #invoice-document::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 60%; /* Kích thước logo */
+    height: 60%;
+    background-image: url('/path/to/your/light_logo.svg'); /* <-- THAY THẾ BẰNG ĐƯỜNG DẪN LOGO CỦA BẠN */
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.1; /* Độ mờ */
+    transform: translate(-50%, -50%);
+    z-index: 0; /* Đảm bảo nằm dưới nội dung */
+    pointer-events: none; /* Không cản tương tác */
+  }
+
+  /* Đảm bảo nội dung luôn ở trên lớp phủ */
+  #invoice-document > * {
+    position: relative;
+    z-index: 1;
+  }
+}

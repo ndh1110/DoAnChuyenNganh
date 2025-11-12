@@ -1,47 +1,42 @@
 import React, { useState, useEffect, useCallback, useMemo} from 'react';
 
 // 1. Import Services
-// (Lưu ý: Đảm bảo bạn đã sửa file 'invoiceService.js' để nó export object 'invoiceService'
-// và các hàm trả về .data như tôi hướng dẫn)
 import { invoiceService } from '../services/invoiceService';
 import { serviceMeterService } from '../services/serviceMeterService';
-
-// --- IMPORT THÊM 3 SERVICE CHO FORM ---
 import { apartmentService } from '../services/apartmentService';
 import { floorService } from '../services/floorService';
 import { blockService } from '../services/blockService';
 
 // 2. Import Components
 import InvoiceList from '../components/InvoiceList.jsx';
-import InvoiceDetails from '../components/InvoiceDetails.jsx'; // (Bạn đã có file này)
-import InvoiceForm from '../components/InvoiceForm.jsx'; // (Bạn đã có file này)
+import InvoiceDetails from '../components/InvoiceDetails.jsx';
+import InvoiceForm from '../components/InvoiceForm.jsx';
 import ServiceMeterList from '../components/ServiceMeterList.jsx';
 import ImportExcelModal from '../components/ImportExcelModal.jsx';
 
 const InvoicesPage = () => {
   // 3. Quản lý State
   const [invoices, setInvoices] = useState([]);
-  const [meters, setMeters] = useState([]); // <-- State cho Chỉ số
+  const [meters, setMeters] = useState([]);
   
   const [allApartments, setAllApartments] = useState([]);
   const [allFloors, setAllFloors] = useState([]);
   const [allBlocks, setAllBlocks] = useState([]);
 
-  const [loading, setLoading] = useState(true); // <-- Dùng 1 state loading chung
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // --- 2. THÊM STATE MỚI CHO MODAL IMPORT ---
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importLoading, setImportLoading] = useState(false);
-  // (Các state cho Form và Details)
+  // State cho Form Lập hóa đơn (cũ)
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
 
-// --- 2. THÊM STATE MỚI CHO MODAL IMPORT ---
+  // --- XÓA BẢN TRÙNG LẶP ---
+  // State cho Modal Import (Giữ lại bản mới nhất)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
 
-  const [viewMode, setViewMode] = useState('list'); // 'list' hoặc 'details'
+  // State cho View Details
+  const [viewMode, setViewMode] = useState('list');
   const [detailData, setDetailData] = useState({ invoice: null, payments: [] });
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(null);
@@ -52,7 +47,6 @@ const InvoicesPage = () => {
       setLoading(true);
       setError(null);
       
-      // --- SỬA: Fetch 5 API song song ---
       const [
         invoiceData, 
         meterData,
@@ -62,14 +56,13 @@ const InvoicesPage = () => {
       ] = await Promise.all([
         invoiceService.getAll(),
         serviceMeterService.getAll(),
-        apartmentService.getAll(), // (Cho Form)
-        floorService.getAll(),   // (Cho Form)
-        blockService.getAll()    // (Cho Form)
+        apartmentService.getAll(),
+        floorService.getAll(),
+        blockService.getAll()
       ]);
       
       setInvoices(invoiceData);
       setMeters(meterData);
-      // --- LƯU STATE MỚI CHO FORM ---
       setAllApartments(aptData);
       setAllFloors(floorData);
       setAllBlocks(blockData);
@@ -130,7 +123,7 @@ const InvoicesPage = () => {
     }
   };
 
-  // 6. Logic View Details Handlers
+  // 7. Logic View Details Handlers
   const handleViewDetails = async (id) => {
     setViewMode('details');
     setDetailLoading(true);
@@ -158,18 +151,16 @@ const InvoicesPage = () => {
     setDetailData({ invoice: null, payments: [] });
   };
 
-  // --- 3. THÊM HANDLER MỚI CHO SUBMIT EXCEL ---
+  // 8. Handler cho Submit Excel (Giữ lại bản mới nhất)
   const handleImportSubmit = async (file) => {
     try {
       setImportLoading(true);
       setError(null);
       
-      // Gọi service (đã được cập nhật)
       const result = await invoiceService.importInvoices(file);
       
       alert(result.message); // Hiển thị thông báo thành công
       
-      // Nếu có lỗi, log ra console
       if (result.failed > 0) {
         console.warn('Các dòng bị lỗi khi import:', result.failedRecords);
         alert(`Import thành công, nhưng có ${result.failed} dòng bị lỗi. Vui lòng kiểm tra Console (F12).`);
@@ -187,36 +178,10 @@ const InvoicesPage = () => {
       setImportLoading(false);
     }
   };
-  // 7. Render UI
-  // --- 3. THÊM HANDLER MỚI CHO SUBMIT EXCEL ---
-  const handleImportSubmit = async (file) => {
-    try {
-      setImportLoading(true);
-      setError(null);
-      
-      // Gọi service (đã được cập nhật)
-      const result = await invoiceService.importInvoices(file);
-      
-      alert(result.message); // Hiển thị thông báo thành công
-      
-      // Nếu có lỗi, log ra console
-      if (result.failed > 0) {
-        console.warn('Các dòng bị lỗi khi import:', result.failedRecords);
-        alert(`Import thành công, nhưng có ${result.failed} dòng bị lỗi. Vui lòng kiểm tra Console (F12).`);
-      }
+  
+  // --- XÓA BẢN TRÙNG LẶP CỦA handleImportSubmit ---
 
-      setIsImportModalOpen(false); // Đóng modal
-      loadData(); // Tải lại toàn bộ danh sách
-      
-    } catch (err) {
-      const errorMsg = err.response?.data?.message || err.response?.data || err.message;
-      console.error("Lỗi khi import:", err);
-      setError(errorMsg); // Hiển thị lỗi
-      alert(`Lỗi: ${errorMsg}`);
-    } finally {
-      setImportLoading(false);
-    }
-  };
+  // 9. Render UI
   return (
     <div className="invoices-page container mx-auto p-6">
       
@@ -229,7 +194,7 @@ const InvoicesPage = () => {
         allApartments={hydratedApartments} 
       />
       
-      {/* --- 4. RENDER MODAL IMPORT MỚI --- */}
+      {/* Modal Import Mới */}
       <ImportExcelModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
@@ -243,7 +208,6 @@ const InvoicesPage = () => {
           {viewMode === 'list' ? '🧾 Quản lý Hóa đơn & Ghi chỉ số' : 'Chi tiết Hóa đơn'}
         </h1>
         {viewMode === 'list' && (
-          // --- 5. THÊM NÚT MỚI VÀO KHUNG CHỨA NÚT ---
           <div className="page-header-actions">
             <button
               onClick={() => setIsImportModalOpen(true)}

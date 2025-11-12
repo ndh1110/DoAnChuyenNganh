@@ -59,7 +59,7 @@ const TaskAssignmentForm = ({ initialData, allEmployees, allCommonAreas, onSubmi
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" required >
               <option value="">-- Chọn nhân viên --</option>
               {allEmployees.map(emp => (
-                <option key={emp.MaNhanVien} value={emp.MaNhanVien}>{emp.HoTen} ({emp.ChucVu})</option>
+                <option key={emp.MaNhanVien} value={emp.MaNhanVien}>{emp.HoTen}</option>
               ))}
             </select>
           </div>

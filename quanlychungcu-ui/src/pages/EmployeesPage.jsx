@@ -1,72 +1,138 @@
-// src/pages/EmployeesPage.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useAuth } from '../context/AuthContext';
 
-// 1. Import Services và Components
-// --- THAY ĐỔI 1: Sửa cách import ---
+// 1. Import Services
 import { employeeService } from '../services/employeeService';
-import EmployeeList from '../components/EmployeeList.jsx';
-import WorkScheduleList from '../components/WorkScheduleList.jsx';
-import TaskAssignmentList from '../components/TaskAssignmentList.jsx';
-import EmployeeForm from '../components/EmployeeForm.jsx';
-import WorkScheduleForm from '../components/WorkScheduleForm.jsx';
-import TaskAssignmentForm from '../components/TaskAssignmentForm.jsx';
+import { residentService } from '../services/residentService';
+import { roleService } from '../services/roleService';
+import { commonAreaService } from '../services/commonAreaService'; // <-- BỊ THIẾU
+
+// 2. Import Components
+import EmployeeList from '../components/EmployeeList';
+import EmployeeForm from '../components/EmployeeForm';
+import WorkScheduleList from '../components/WorkScheduleList'; // (Giả sử bạn đã có)
+import WorkScheduleForm from '../components/WorkScheduleForm'; // (Giả sử bạn đã có)
+import TaskAssignmentList from '../components/TaskAssignmentList'; // (Giả sử bạn đã có)
+import TaskAssignmentForm from '../components/TaskAssignmentForm'; // (Giả sử bạn đã có)
 
 const EmployeesPage = () => {
-  // 2. Quản lý State (Không đổi)
+
+  // 3. Quản lý State (Gộp tất cả)
+  // State cho Danh sách
   const [employees, setEmployees] = useState([]);
-  const [schedules, setSchedules] = useState([]);
-  const [tasks, setTasks] = useState([]);
+  const [schedules, setSchedules] = useState([]); // <-- BỊ THIẾU
+  const [tasks, setTasks] = useState([]);       // <-- BỊ THIẾU
+  
+  // State cho Dữ liệu Form
+  const [allUsers, setAllUsers] = useState([]);
+  const [allRoles, setAllRoles] = useState([]);
+  const [userRolesData, setUserRolesData] = useState([]);
+  const [allCommonAreas, setAllCommonAreas] = useState([]); // <-- BỊ THIẾU
+
+  // State chung
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [allUsers, setAllUsers] = useState([]);
-  const [allCommonAreas, setAllCommonAreas] = useState([]);
-  const [formState, setFormState] = useState({
-    modalType: null,
-    initialData: null,
-  });
+  
+  // State cho Modal (Dùng logic cũ)
+  const [formState, setFormState] = useState({ 
+    modalType: null, // 'EMPLOYEE', 'SCHEDULE', 'TASK'
+    initialData: null 
+  }); 
+  const [formLoading, setFormLoading] = useState(false);
+  
+  const { user } = useAuth();
+  const canManage = user?.role === 'Quản lý';
 
-  // 3. Logic Fetch Data
-  const fetchData = useCallback(async () => {
+  // 4. Logic Fetch Data (Fetch 7 API)
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // --- THAY ĐỔI 2: Sửa cách gọi API (dùng employeeService) ---
-      const [empRes, schRes, taskRes, userRes, areaRes] = await Promise.all([
-        employeeService.getAllEmployees(),
-        employeeService.getAllSchedules(),
-        employeeService.getAllAssignments(),
-        employeeService.getAllUsers(),
-        employeeService.getAllCommonAreas(),
+      const [
+        empData, 
+        usersData, 
+        rolesData, 
+        userRoles,
+        scheduleData, // <-- MỚI
+        taskData,     // <-- MỚI
+        commonAreasData // <-- MỚI
+      ] = await Promise.all([
+        employeeService.getAll(),
+        residentService.getAll(),
+        roleService.getAllRoles(),
+        roleService.getUserRoles(),
+        employeeService.getAllSchedules(), // <-- Gọi API Lịch trực
+        employeeService.getAllAssignments(), // <-- Gọi API Phân công
+        commonAreaService.getAll()     // <-- Gọi API Khu vực chung
       ]);
       
-      // --- THAY ĐỔI 3: Bỏ '.data' vì service đã xử lý ---
-      setEmployees(empRes);
-      setSchedules(schRes);
-      setTasks(taskRes);
-      setAllUsers(userRes);
-      setAllCommonAreas(areaRes);
+      setEmployees(empData.data);
+      setAllUsers(usersData.data);
+      setAllRoles(rolesData);
+      setUserRolesData(userRoles);
+      setSchedules(scheduleData.data); // <-- Lưu Lịch trực
+      setTasks(taskData.data);     // <-- Lưu Phân công
+      setAllCommonAreas(commonAreasData); // <-- Lưu Khu vực chung
 
     } catch (err) {
-      console.error("Lỗi khi tải dữ liệu Nhân sự:", err);
-      setError(err.message);
+      console.error("Lỗi khi tải dữ liệu trang Nhân viên:", err);
+      setError(err.message || "Không thể tải dữ liệu.");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    loadData();
+  }, [loadData]);
 
-  // 4. Logic CRUD Handlers (Không đổi)
+  // 5. Logic "Làm giàu" Nhân viên (Thêm vai trò vào)
+  const hydratedEmployees = useMemo(() => {
+    const userRolesMap = new Map();
+    userRolesData.forEach(user => {
+      userRolesMap.set(user.MaNguoiDung, user.Roles);
+    });
+
+    return employees.map(emp => ({
+      ...emp,
+      Roles: userRolesMap.get(emp.MaNguoiDung) || [] 
+    }));
+  }, [employees, userRolesData]);
+
+  // 6. Logic CRUD Handlers (Dùng logic cũ, nhưng sửa lỗi)
+  
+  // Form Open/Close Handlers
+  const openForm = (modalType, initialData = null) => {
+    setFormState({ modalType, initialData });
+  };
+  const closeForm = () => {
+    setFormState({ modalType: null, initialData: null });
+  };
+
   const handleFormSubmit = async (formData) => {
+    const { modalType, initialData } = formState;
+    setFormLoading(true);
+    
     try {
-      const { modalType, initialData } = formState;
-      
       if (modalType === 'EMPLOYEE') {
-        if (initialData) await employeeService.updateEmployee(initialData.MaNhanVien, formData);
-        else await employeeService.createEmployee(formData);
+        // Logic gộp (từ code mới)
+        const profileData = {
+          NgayVaoLam: formData.NgayVaoLam || null,
+          MaSoThue: formData.MaSoThue || null,
+          TrangThai: formData.TrangThai,
+        };
+        let targetUserId;
+
+        if (initialData) { // Sửa
+          targetUserId = initialData.MaNguoiDung;
+          await employeeService.update(initialData.MaNhanVien, profileData);
+        } else { // Tạo mới
+          targetUserId = parseInt(formData.MaNguoiDung);
+          await employeeService.create({ MaNguoiDung: targetUserId, ...profileData });
+        }
+        // Luôn đồng bộ vai trò
+        await roleService.syncUserRoles(targetUserId, formData.roleIds);
       
       } else if (modalType === 'SCHEDULE') {
         if (initialData) await employeeService.updateSchedule(initialData.MaLichTruc, formData);
@@ -78,10 +144,12 @@ const EmployeesPage = () => {
       }
       
       closeForm();
-      fetchData(); // Tải lại toàn bộ
+      loadData(); // Tải lại toàn bộ
     } catch (err) {
        console.error("Lỗi khi lưu dữ liệu:", err);
        setError(err.response?.data || err.message);
+    } finally {
+       setFormLoading(false);
     }
   };
 
@@ -91,7 +159,7 @@ const EmployeesPage = () => {
 
     if (type === 'EMPLOYEE') {
         confirmMessage = `Bạn có chắc muốn xóa Nhân viên (ID: ${id})?`;
-        deleteAction = () => employeeService.deleteEmployee(id);
+        deleteAction = () => employeeService.delete(id); // Sửa tên hàm
     } else if (type === 'SCHEDULE') {
         deleteAction = () => employeeService.deleteSchedule(id);
     } else if (type === 'TASK') {
@@ -101,48 +169,50 @@ const EmployeesPage = () => {
     if (window.confirm(confirmMessage)) {
       try {
         await deleteAction();
-        fetchData(); // Tải lại
+        loadData(); // Tải lại
       } catch (err) {
         console.error("Lỗi khi xóa:", err);
         setError(err.message);
       }
     }
   };
-  
-  // -- Form Open/Close Handlers (Không đổi) --
-  const openForm = (modalType, initialData = null) => {
-    setFormState({ modalType, initialData });
-  };
-  const closeForm = () => {
-    setFormState({ modalType: null, initialData: null });
-  };
 
-  // 6. Render UI (Không đổi)
+  // 7. Render UI
   const renderModal = () => {
     const { modalType, initialData } = formState;
     if (!modalType) return null;
 
     if (modalType === 'EMPLOYEE') {
       return <EmployeeForm 
+                isOpen={true} // <-- Luôn mở nếu modalType tồn tại
+                onClose={closeForm} 
+                onSubmit={handleFormSubmit}
+                isLoading={formLoading}
                 initialData={initialData} 
-                allUsers={allUsers} 
-                onSubmit={handleFormSubmit} 
-                onClose={closeForm} />;
+                allUsers={allUsers}
+                allRoles={allRoles} // <-- Truyền vai trò xuống
+                />;
     }
     if (modalType === 'SCHEDULE') {
        return <WorkScheduleForm 
-                initialData={initialData} 
-                allEmployees={employees} 
+                isOpen={true}
+                onClose={closeForm}
                 onSubmit={handleFormSubmit} 
-                onClose={closeForm} />;
+                isLoading={formLoading}
+                initialData={initialData} 
+                allEmployees={hydratedEmployees} // (Truyền NV đã "làm giàu")
+                />;
     }
     if (modalType === 'TASK') {
        return <TaskAssignmentForm 
-                initialData={initialData} 
-                allEmployees={employees} 
-                allCommonAreas={allCommonAreas} 
+                isOpen={true}
+                onClose={closeForm}
                 onSubmit={handleFormSubmit} 
-                onClose={closeForm} />;
+                isLoading={formLoading}
+                initialData={initialData} 
+                allEmployees={hydratedEmployees} // (Truyền NV đã "làm giàu")
+                allCommonAreas={allCommonAreas} 
+                />;
     }
     return null;
   };
@@ -153,50 +223,57 @@ const EmployeesPage = () => {
       {/* --- MODALS --- */}
       {renderModal()}
 
-      {/* --- Tiêu đề Trang & Nút bấm (Không đổi) --- */}
+      {/* --- Tiêu đề Trang & Nút bấm --- */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-semibold text-gray-800">
           👷‍♂️ Quản lý Nhân sự
         </h1>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => openForm('EMPLOYEE')}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow-md">
-            + Thêm Nhân viên
-          </button>
-          <button onClick={() => openForm('SCHEDULE')}
-            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow-md">
-            + Xếp Lịch trực
-          </button>
-          <button onClick={() => openForm('TASK')}
-            className="bg-yellow-600 hover:bg-yellow-700 text-black font-bold py-2 px-4 rounded shadow-md">
-            + Phân công
-          </button>
-        </div>
+        {/* Chỉ Quản lý mới thấy nút */}
+        {canManage && (
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => openForm('EMPLOYEE')}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow-md">
+              + Thêm Nhân viên
+            </button>
+            <button onClick={() => openForm('SCHEDULE')}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow-md">
+              + Xếp Lịch trực
+            </button>
+            <button onClick={() => openForm('TASK')}
+              className="bg-yellow-600 hover:bg-yellow-700 text-black font-bold py-2 px-4 rounded shadow-md">
+              + Phân công
+            </button>
+          </div>
+        )}
       </div>
       <hr className="mb-6" />
 
-      {/* --- Hiển thị Lỗi chung (Không đổi) --- */}
       {error && <div className="p-6 text-red-600 text-center font-semibold">❌ Lỗi API: {error}.</div>}
 
-      {/* --- Hiển thị các danh sách (Không đổi) --- */}
       {loading ? (
         <div className="p-6 text-center text-blue-500">Đang tải toàn bộ dữ liệu nhân sự...</div>
       ) : (
         <>
           <EmployeeList
-            employees={employees}
-            onEdit={(data) => openForm('EMPLOYEE', data)}
-            onDelete={(id) => handleDelete('EMPLOYEE', id)}
+            employees={hydratedEmployees} // Dùng NV đã "làm giàu"
+            onEdit={canManage ? (data) => openForm('EMPLOYEE', data) : null}
+            onDelete={canManage ? (id) => handleDelete('EMPLOYEE', id) : null}
+            isLoading={loading}
+            canManage={canManage}
           />
           <WorkScheduleList
             schedules={schedules}
-            onEdit={(data) => openForm('SCHEDULE', data)}
-            onDelete={(id) => handleDelete('SCHEDULE', id)}
+            onEdit={canManage ? (data) => openForm('SCHEDULE', data) : null}
+            onDelete={canManage ? (id) => handleDelete('SCHEDULE', id) : null}
+            isLoading={loading}
+            canManage={canManage}
           />
           <TaskAssignmentList
             tasks={tasks}
-            onEdit={(data) => openForm('TASK', data)}
-            onDelete={(id) => handleDelete('TASK', id)}
+            onEdit={canManage ? (data) => openForm('TASK', data) : null}
+            onDelete={canManage ? (id) => handleDelete('TASK', id) : null}
+            isLoading={loading}
+            canManage={canManage}
           />
         </>
       )}

@@ -55,7 +55,7 @@ const WorkScheduleForm = ({ initialData, allEmployees, onSubmit, onClose }) => {
               <option value="">-- Chọn nhân viên --</option>
               {/* 'allEmployees' được truyền từ 'EmployeesPage' */}
               {allEmployees.map(emp => (
-                <option key={emp.MaNhanVien} value={emp.MaNhanVien}>{emp.HoTen} ({emp.ChucVu})</option>
+                <option key={emp.MaNhanVien} value={emp.MaNhanVien}>{emp.HoTen}</option>
               ))}
             </select>
           </div>

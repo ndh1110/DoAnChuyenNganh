@@ -7,6 +7,7 @@ import { blockService } from '../services/blockService';
 // --- (GỘP TỪ HEAD): Import cả Auth và Form ---
 import BlockForm from '../components/BlockForm';
 import { useAuth } from '../context/AuthContext'; 
+import BlockList from '../components/BlockList';
 
 function BlocksPage() {
   // === 3. Quản lý State ===

@@ -3,8 +3,7 @@ import "./App.css";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
 // 1. IMPORT AUTHPROVIDER VÀ AUTHSERVICE
-import { AuthProvider, useAuth } from "./context/AuthContext"; 
-import { authService } from "./services/authService";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 
 // 2. IMPORT CÁC COMPONENT VÀ TRANG
 import Navbar from "./components/Navbar";
@@ -22,7 +21,7 @@ import EmployeesPage from "./pages/EmployeesPage";
 import RequestsPage from "./pages/RequestsPage"; 
 import CommonAreasPage from "./pages/CommonAreasPage";
 import NotFound from "./pages/NotFound";
-import { authService } from "./services/authService";
+import UserManagementPage from "./pages/UserManagementPage";
 
 // AuthGuardEventBridge (Đã đúng, chỉ cần đảm bảo nó nằm trong AuthProvider)
 function AuthGuardEventBridge() {
@@ -74,6 +73,7 @@ function AppContent() {
             <Route path="/employees" element={<EmployeesPage />} />
             <Route path="/requests" element={<RequestsPage />} />
             <Route path="/common-areas" element={<CommonAreasPage />} />
+            <Route path="/user-management" element={<UserManagementPage />} />
           </Route>
 
           {/* Route cho 404 Not Found */}

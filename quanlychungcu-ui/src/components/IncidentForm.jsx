@@ -120,7 +120,7 @@ const IncidentForm = ({ initialData, allCommonAreas, allEmployees, onSubmit, onC
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md">
                   <option value="">-- Bỏ gán --</option>
                   {allEmployees.map(emp => (
-                    <option key={emp.MaNhanVien} value={emp.MaNhanVien}>{emp.HoTen} ({emp.ChucVu})</option>
+                    <option key={emp.MaNhanVien} value={emp.MaNhanVien}>{emp.HoTen}</option>
                   ))}
                 </select>
               </div>

@@ -34,6 +34,9 @@ export default function Navbar() {
       <NavLink to="/requests" style={linkStyle}>Requests</NavLink>
       <NavLink to="/common-areas" style={linkStyle}>Common-areas</NavLink>
 
+      {user.role === 'Quản lý' && (
+         <NavLink to="/user-management" style={linkStyle}>Phân Quyền</NavLink>
+      )}
       <div className="navbar-user">
         <span>Chào, {user.name || user.email}!</span>
       <button onClick={handleLogout} className="btn-logout">Đăng xuất</button>

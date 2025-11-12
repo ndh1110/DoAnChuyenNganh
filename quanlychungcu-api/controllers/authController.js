@@ -29,20 +29,54 @@ const registerUser = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const matKhauHash = await bcrypt.hash(Password, salt);
 
-        // 3. Tạo người dùng mới
-        const result = await pool.request()
-            .input('HoTen', mssql.NVarChar, HoTen)
-            .input('Email', mssql.NVarChar, Email)
-            .input('SoDienThoai', mssql.NVarChar, SoDienThoai)
-            .input('MatKhauHash', mssql.NVarChar, matKhauHash) // 👈 Lưu mật khẩu đã băm
-            .query(`INSERT INTO dbo.NguoiDung (HoTen, Email, SoDienThoai, MatKhauHash) 
-                    OUTPUT Inserted.MaNguoiDung, Inserted.HoTen, Inserted.Email 
-                    VALUES (@HoTen, @Email, @SoDienThoai, @MatKhauHash)`);
-        
-        res.status(201).json(result.recordset[0]);
+        // =============================================
+        // ⭐ LOGIC MỚI: SỬ DỤNG TRANSACTION
+        // =============================================
+        const transaction = new mssql.Transaction(pool);
+        await transaction.begin();
+
+        try {
+            // 3. Tạo người dùng mới
+            const requestNguoiDung = transaction.request(); // Phải dùng request của transaction
+            const result = await requestNguoiDung
+                .input('HoTen', mssql.NVarChar, HoTen)
+                .input('Email', mssql.NVarChar, Email)
+                .input('SoDienThoai', mssql.NVarChar, SoDienThoai)
+                .input('MatKhauHash', mssql.NVarChar, matKhauHash)
+                .query(`INSERT INTO dbo.NguoiDung (HoTen, Email, SoDienThoai, MatKhauHash) 
+                        OUTPUT Inserted.MaNguoiDung, Inserted.HoTen, Inserted.Email 
+                        VALUES (@HoTen, @Email, @SoDienThoai, @MatKhauHash)`);
+            
+            const newUser = result.recordset[0];
+            const newUserId = newUser.MaNguoiDung;
+
+            // 4. Tự động gán vai trò "Khách" (MaVaiTro = 4)
+            const requestVaiTro = transaction.request(); // Request mới cho transaction
+            const maVaiTroKhach = 4; // ID 'Khách' (Guest/Resident) từ DB
+
+            await requestVaiTro
+                .input('MaNguoiDung', mssql.Int, newUserId)
+                .input('MaVaiTro', mssql.Int, maVaiTroKhach)
+                .query(`INSERT INTO dbo.NguoiDung_VaiTro (MaNguoiDung, MaVaiTro) 
+                        VALUES (@MaNguoiDung, @MaVaiTro)`);
+
+            // 5. Hoàn tất transaction
+            await transaction.commit();
+            
+            res.status(201).json(newUser);
+
+        } catch (err) {
+            await transaction.rollback(); // Rollback nếu có lỗi
+            console.error('Lỗi khi đăng ký (Transaction):', err);
+            // Lỗi 547 (FK) hoặc 2627 (Unique)
+            if (err.number === 547 || err.number === 2627) {
+                 return res.status(400).send('Lỗi ràng buộc CSDL khi tạo tài khoản hoặc gán vai trò.');
+            }
+            res.status(500).send(err.message);
+        }
 
     } catch (err) {
-        console.error('Lỗi Register:', err);
+        console.error('Lỗi Register (ngoài transaction):', err);
         res.status(500).send(err.message);
     }
 };
@@ -68,31 +102,42 @@ const loginUser = async (req, res) => {
 
         // 2. So sánh mật khẩu
         const isMatch = await bcrypt.compare(Password, user.MatKhauHash);
-
         if (!isMatch) {
             return res.status(401).send('Email hoặc Mật khẩu không đúng');
         }
 
         // =============================================
-        // ⭐ LOGIC MỚI: LẤY VAI TRÒ (ROLE)
+        // ⭐ LOGIC MỚI: LẤY VAI TRÒ (ROLE) TỪ BẢNG MỚI
         // =============================================
-        let userRole = "Resident"; // Mặc định là Cư dân
-
-        const roleResult = await pool.request()
+        // Lấy tất cả vai trò của người dùng
+        const rolesResult = await pool.request()
             .input('MaNguoiDung', mssql.Int, user.MaNguoiDung)
-            .query('SELECT ChucVu FROM dbo.NhanVien WHERE MaNguoiDung = @MaNguoiDung'); // [cite: 35]
+            .query(`
+                SELECT vt.TenVaiTro 
+                FROM dbo.NguoiDung_VaiTro ndvt
+                JOIN dbo.VaiTro vt ON ndvt.MaVaiTro = vt.MaVaiTro
+                WHERE ndvt.MaNguoiDung = @MaNguoiDung
+            `);
 
-        if (roleResult.recordset.length > 0) {
-            userRole = roleResult.recordset[0].ChucVu; // Ví dụ: "Kỹ thuật", "Quản lý"
-        }
-        // (Nếu bạn muốn có "Admin", bạn cần thêm 1 người dùng với ChucVu = 'Admin')
+        // Lấy danh sách tên vai trò, ví dụ: ["Quản lý", "Resident"]
+        const roles = rolesResult.recordset.map(r => r.TenVaiTro);
+        
+        // (Chúng ta sẽ dùng vai trò đầu tiên làm vai trò chính, hoặc bạn có thể chọn logic phức tạp hơn)
+        // Nếu không có vai trò nào (ví dụ: lỗi đăng ký cũ), mặc định là "Khách"
+        let primaryRole = roles.length > 0 ? roles[0] : "Khách";
+        
+        // (Logic ưu tiên: Nếu có 'Quản lý' hoặc 'Kỹ thuật', ưu tiên nó hơn 'Resident')
+        if (roles.includes('Quản lý')) primaryRole = 'Quản lý';
+        else if (roles.includes('Kỹ thuật')) primaryRole = 'Kỹ thuật';
+        else if (roles.includes('Resident')) primaryRole = 'Resident';
 
-        // 3. Tạo và trả về JWT (Đã thêm 'role' vào payload)
+        // 3. Tạo và trả về JWT
         const tokenPayload = {
             id: user.MaNguoiDung,
             email: user.Email,
             name: user.HoTen,
-            role: userRole // 👈 ĐÃ THÊM VAI TRÒ VÀO TOKEN
+            role: primaryRole, // 👈 Gán vai trò chính
+            roles: roles // 👈 Gửi tất cả vai trò (nếu cần)
         };
         
         const token = jwt.sign(
@@ -104,7 +149,7 @@ const loginUser = async (req, res) => {
         res.json({
             message: "Đăng nhập thành công",
             token: token,
-            user: tokenPayload // Gửi kèm thông tin user để Frontend sử dụng
+            user: tokenPayload 
         });
 
     } catch (err) {

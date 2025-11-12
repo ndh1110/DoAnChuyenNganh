@@ -14,6 +14,10 @@ const { protect, authorize } = require('./middleware/authMiddleware');
 const billingRoutes = require('./routes/billing')
 const authRoutes = require('./routes/auth');
 
+//new
+const userRoleRoutes = require('./routes/userRole');
+const vaiTroRoutes = require('./routes/vaiTro');
+
 // (Các tuyến đường nghiệp vụ)
 const nguoiDungRoutes = require('./routes/nguoiDung');
 const blockRoutes = require('./routes/block');
@@ -30,7 +34,6 @@ const hoaDonRoutes = require('./routes/hoaDon');
 const chiTietHoaDonRoutes = require('./routes/chiTietHoaDon');
 const thanhToanRoutes = require('./routes/thanhToan');
 const giaoDichThanhToanRoutes = require('./routes/giaoDichThanhToan');
-const billingRoutes = require('./routes/billing'); // (Import route Import Excel)
 
 const yeuCauRoutes = require('./routes/yeuCau');
 const yeuCauLogRoutes = require('./routes/yeuCauLog');
@@ -133,6 +136,10 @@ app.use('/api/suco', protect, suCoRoutes);
 app.use('/api/kiemtrakhuvuc', protect, kiemTraKhuVucRoutes);
 app.use('/api/trangthai', protect, trangThaiRoutes);
 app.use('/api/billing', protect, billingRoutes);
+
+//new
+app.use('/api/vaitro', protect, roleQuanLy, vaiTroRoutes); // 👈 DÒNG 3: THÊM VÀO
+app.use('/api/user-roles', protect, roleQuanLy, userRoleRoutes);
 // Bạn có thể thêm các routes khác ở đây
 
 

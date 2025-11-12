@@ -1,58 +1,69 @@
-// src/components/EmployeeList.jsx
 import React from 'react';
 
-// "Dumb Component" - Chỉ nhận props
-const EmployeeList = ({ employees, onEdit, onDelete }) => {
+// Hàm helper để format ngày (YYYY-MM-DD)
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  try {
+    // Cắt chuỗi 'T' (ví dụ: 2025-11-10T00:00:00.000Z)
+    return dateString.split('T')[0];
+  } catch (e) {
+    return 'Ngày lỗi';
+  }
+};
+
+/**
+ * Component "Ngốc" (Dumb Component)
+ * - ĐÃ THÊM cột 'NgayVaoLam' và 'MaSoThue'.
+ */
+function EmployeeList({ employees, onEdit, onDelete, isLoading, canManage }) {
+
+  if (isLoading) {
+    return <div>Đang tải danh sách nhân viên...</div>;
+  }
+
+  if (employees.length === 0) {
+    return <div>Không có nhân viên nào.</div>;
+  }
+
   return (
-    <div className="employee-list mt-6 overflow-x-auto">
-      <h2 className="text-2xl font-bold mb-4">Danh sách Nhân viên ({employees.length})</h2>
-      <table className="min-w-full bg-white border border-gray-200">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="py-2 px-4 border-b text-left">Mã NV</th>
-            <th className="py-2 px-4 border-b text-left">Họ Tên</th>
-            <th className="py-2 px-4 border-b text-left">Email</th>
-            <th className="py-2 px-4 border-b text-left">Chức Vụ</th>
-            <th className="py-2 px-4 border-b text-left">Trạng Thái</th>
-            <th className="py-2 px-4 border-b text-left">Hành động</th>
-          </tr>
-        </thead>
-        <tbody>
-          {employees.map((emp) => (
-            <tr key={emp.MaNhanVien} className="hover:bg-gray-50">
-              <td className="py-2 px-4 border-b">{emp.MaNhanVien}</td>
-              {/* Giả định API /api/nhanvien đã JOIN và trả về HoTen, Email */}
-              <td className="py-2 px-4 border-b font-medium">{emp.HoTen || `(Mã ND: ${emp.MaNguoiDung})`}</td>
-              <td className="py-2 px-4 border-b text-sm">{emp.Email || 'N/A'}</td>
-              <td className="py-2 px-4 border-b">{emp.ChucVu}</td>
-              <td className="py-2 px-4 border-b">{emp.TrangThai || 'Active'}</td>
-              <td className="py-2 px-4 border-b">
-                <button
-                  onClick={() => onEdit(emp)}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded mr-2"
-                >
-                  Sửa
+    <table className="data-table">
+      <thead>
+        <tr>
+          <th>Mã NV</th>
+          <th>Họ Tên</th>
+          <th>Email (Tài khoản)</th>
+          <th>Ngày vào làm</th> {/* <-- CỘT MỚI */}
+          <th>Mã số thuế</th> {/* <-- CỘT MỚI */}
+          <th>Trạng Thái</th>
+          {canManage && <th>Hành Động</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {employees.map((emp) => (
+          <tr key={emp.MaNhanVien}>
+            <td>{emp.MaNhanVien}</td>
+            <td>{emp.HoTen}</td>
+            <td>{emp.Email}</td>
+            <td>{formatDate(emp.NgayVaoLam)}</td> {/* <-- DỮ LIỆU MỚI */}
+            <td>{emp.MaSoThue || 'N/A'}</td> {/* <-- DỮ LIỆU MỚI */}
+            <td>{emp.TrangThai}</td>
+            
+            {/* Ẩn/hiện dựa trên quyền "Quản lý" (đã có) */}
+            {canManage && (
+              <td className="actions">
+                <button onClick={() => onEdit(emp)} className="btn-edit">
+                  Sửa Hồ Sơ
                 </button>
-                <button
-                  onClick={() => onDelete(emp.MaNhanVien)}
-                  className="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded"
-                >
+                <button onClick={() => onDelete(emp.MaNhanVien)} className="btn-delete">
                   Xóa
                 </button>
               </td>
-            </tr>
-          ))}
-          {employees.length === 0 && (
-            <tr>
-              <td colSpan="6" className="py-4 text-center text-gray-500">
-                👷‍♂️ Chưa có nhân viên nào trong hệ thống.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
-};
+}
 
 export default EmployeeList;

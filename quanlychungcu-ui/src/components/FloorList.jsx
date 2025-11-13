@@ -1,11 +1,7 @@
+// src/components/FloorList.jsx
 import React from 'react';
 
-/**
- * Component "Ngốc" (Dumb Component)
- * - Hiển thị danh sách các tầng của block đã chọn.
- * - Chỉ nhận props từ cha (FloorsPage).
- */
-function FloorList({ floors, onDelete, isLoading }) {
+function FloorList({ floors, onDelete, isLoading, canManage }) { // Nhận prop canManage
 
   if (isLoading) {
     return <div>Đang tải dữ liệu tầng...</div>;
@@ -21,7 +17,9 @@ function FloorList({ floors, onDelete, isLoading }) {
         <tr>
           <th>Mã Tầng (MaTang)</th>
           <th>Số Tầng (SoTang)</th>
-          <th>Hành Động</th>
+          
+          {/* Chỉ hiện cột Hành Động nếu có quyền */}
+          {canManage && <th>Hành Động</th>}
         </tr>
       </thead>
       <tbody>
@@ -29,12 +27,15 @@ function FloorList({ floors, onDelete, isLoading }) {
           <tr key={floor.MaTang}>
             <td>{floor.MaTang}</td>
             <td>{floor.SoTang}</td>
-            <td className="actions">
-              {/* API của bạn không có Update Tầng, chỉ có Xóa */}
-              <button onClick={() => onDelete(floor.MaTang)} className="btn-delete">
-                Xóa
-              </button>
-            </td>
+            
+            {/* Chỉ hiện nút Xóa nếu có quyền */}
+            {canManage && (
+              <td className="actions">
+                <button onClick={() => onDelete(floor.MaTang)} className="btn-delete">
+                  Xóa
+                </button>
+              </td>
+            )}
           </tr>
         ))}
       </tbody>

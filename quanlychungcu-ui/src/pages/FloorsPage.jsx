@@ -1,35 +1,29 @@
+// src/pages/FloorsPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-
-// 1. Import Lớp Service
-// Import cả 2 service vì trang này cần dữ liệu Block VÀ Tầng
 import { blockService } from '../services/blockService';
 import { floorService } from '../services/floorService';
-
-// 2. Import các Component "Ngốc"
+import { useAuth } from '../context/AuthContext'; // <-- 1. Import useAuth
 import FloorList from '../components/FloorList';
 import FloorForm from '../components/FloorForm';
 
-/**
- * Component "Thông Minh" (Smart Component)
- * - Quản lý state và logic cho chức năng CRUD Tầng.
- */
 function FloorsPage() {
-  // === 3. Quản lý State ===
-  const [floors, setFloors] = useState([]); // Danh sách tầng
-  const [blocks, setBlocks] = useState([]); // Danh sách block (cho dropdown)
-  const [selectedBlockId, setSelectedBlockId] = useState(''); // Block đang chọn
+  const [floors, setFloors] = useState([]);
+  const [blocks, setBlocks] = useState([]);
+  const [selectedBlockId, setSelectedBlockId] = useState('');
   
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingBlocks, setLoadingBlocks] = useState(true);
   const [error, setError] = useState(null);
   
-  // State cho Modal Form
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
-  
-  // === 4. Logic (useEffect) ===
 
-  // Hàm tải danh sách Block (cho dropdown)
+  // --- 2. LOGIC PHÂN QUYỀN ---
+  const { user } = useAuth();
+  const MANAGER_ROLES = ['Quản lý', 'Admin', 'Nhân viên', 'Kỹ thuật'];
+  const canManageFloors = MANAGER_ROLES.includes(user?.role);
+
+  // (Logic loadBlocks và loadFloors giữ nguyên)
   const loadBlocks = useCallback(async () => {
     try {
       setLoadingBlocks(true);
@@ -43,10 +37,9 @@ function FloorsPage() {
     }
   }, []);
 
-  // Hàm tải danh sách Tầng (dựa trên block đang chọn)
   const loadFloors = useCallback(async () => {
     if (!selectedBlockId) {
-      setFloors([]); // Nếu chưa chọn block, reset ds tầng
+      setFloors([]);
       return;
     }
     try {
@@ -59,26 +52,20 @@ function FloorsPage() {
     } finally {
       setLoadingFloors(false);
     }
-  }, [selectedBlockId]); // Phụ thuộc vào block đang chọn
+  }, [selectedBlockId]);
 
-  // 1. useEffect: Tải danh sách Block khi trang được mở
   useEffect(() => {
     loadBlocks();
   }, [loadBlocks]);
 
-  // 2. useEffect: Tải danh sách Tầng KHI `selectedBlockId` thay đổi
   useEffect(() => {
     loadFloors();
-  }, [loadFloors]); // Phụ thuộc vào hàm `loadFloors` (đã chứa `selectedBlockId`)
+  }, [loadFloors]);
 
-  // === 5. Các Hàm Xử Lý Sự Kiện (Event Handlers) ===
-
-  // Xử lý khi đổi Block trên dropdown
   const handleBlockChange = (e) => {
     setSelectedBlockId(e.target.value);
   };
 
-  // Mở modal để TẠO MỚI
   const handleAddNew = () => {
     if (!selectedBlockId) {
       alert("Vui lòng chọn một Block trước khi thêm tầng.");
@@ -87,29 +74,27 @@ function FloorsPage() {
     setIsModalOpen(true);
   };
 
-  // Xử lý sự kiện XÓA (nhận `id` từ FloorList)
   const handleDelete = async (id) => {
     if (window.confirm(`Bạn có chắc muốn xóa Tầng (ID: ${id})?`)) {
       try {
-        setLoadingFloors(true); // Đặt loading
+        setLoadingFloors(true);
         await floorService.delete(id);
         alert("Xóa Tầng thành công!");
-        loadFloors(); // Tải lại danh sách tầng cho block hiện tại
+        loadFloors();
       } catch (err) {
-        setError(err.message || "Lỗi khi xóa Tầng.");
-        alert(`Lỗi khi xóa: ${error}`);
+        const errorMsg = err.message || "Lỗi khi xóa Tầng.";
+        setError(errorMsg);
+        alert(`Lỗi khi xóa: ${errorMsg}`);
         setLoadingFloors(false);
       }
     }
   };
 
-  // Xử lý khi Form (trong modal) được SUBMIT
   const handleFormSubmit = async (formData) => {
     try {
       setFormLoading(true);
       setError(null);
       
-      // Gắn MaBlock đang chọn vào formData trước khi gửi
       const dataToSubmit = {
         ...formData,
         MaBlock: parseInt(selectedBlockId)
@@ -117,8 +102,6 @@ function FloorsPage() {
 
       await floorService.create(dataToSubmit);
       alert("Tạo mới Tầng thành công!");
-
-      // Đóng modal và tải lại danh sách
       setIsModalOpen(false);
       loadFloors();
     } catch (err) {
@@ -130,27 +113,28 @@ function FloorsPage() {
     }
   };
   
-  // Lấy tên block đang chọn (để hiển thị trên modal)
   const getSelectedBlockName = () => {
     const selectedBlock = blocks.find(b => b.MaBlock.toString() === selectedBlockId);
     return selectedBlock ? selectedBlock.TenBlock : '';
   };
 
-  // === 6. Render Giao Diện ===
   return (
     <div className="page-container">
       <div className="page-header">
         <h2>Quản lý Tầng</h2>
-        <button 
-          onClick={handleAddNew} 
-          className="btn-add-new"
-          disabled={!selectedBlockId} // Chỉ cho phép thêm khi đã chọn block
-        >
-          + Thêm Tầng Mới
-        </button>
+        
+        {/* --- 3. Ẩn nút Thêm nếu không có quyền --- */}
+        {canManageFloors && (
+          <button 
+            onClick={handleAddNew} 
+            className="btn-add-new"
+            disabled={!selectedBlockId}
+          >
+            + Thêm Tầng Mới
+          </button>
+        )}
       </div>
 
-      {/* --- Bộ lọc chọn Block --- */}
       <div className="filters">
         <label htmlFor="blockSelect">Chọn Block: </label>
         <select 
@@ -168,24 +152,26 @@ function FloorsPage() {
         </select>
       </div>
 
-      {/* Hiển thị lỗi nếu có */}
       {error && <div className="error-message">Lỗi: {error}</div>}
 
-      {/* 7. Truyền state và handlers xuống component "ngốc" */}
+      {/* --- 4. Truyền quyền xuống FloorList --- */}
       <FloorList
         floors={floors}
         onDelete={handleDelete}
         isLoading={loadingFloors}
+        canManage={canManageFloors} 
       />
       
-      {/* 8. Render Modal (Form) */}
-      <FloorForm
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleFormSubmit}
-        isLoading={formLoading}
-        blockName={getSelectedBlockName()}
-      />
+      {/* --- 5. Chỉ render Form khi có quyền --- */}
+      {canManageFloors && (
+        <FloorForm
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={handleFormSubmit}
+          isLoading={formLoading}
+          blockName={getSelectedBlockName()}
+        />
+      )}
     </div>
   );
 }

@@ -26,7 +26,7 @@ function LoginPage() {
       
       // 4. Chuyển hướng
       // (Không cần reload, Context sẽ lo việc cập nhật UI)
-      navigate('/blocks', { replace: true });
+      navigate('/', { replace: true });
 
     } catch (err) {
       const errorMsg = err.response?.data?.message || err.response?.data || 'Email hoặc Mật khẩu không đúng';

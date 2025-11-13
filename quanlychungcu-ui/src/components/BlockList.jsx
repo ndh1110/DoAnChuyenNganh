@@ -1,11 +1,6 @@
+// src/components/BlockList.jsx
 import React from 'react';
 
-/**
- * Component "Ngốc" (Dumb Component)
- * - KHÔNG gọi API, KHÔNG quản lý state.
- * - Chỉ nhận props từ cha (BlocksPage) và hiển thị.
- * - Phát sự kiện onEdit, onDelete lên cho cha xử lý.
- */
 function BlockList({ blocks, onEdit, onDelete, isLoading, canManage }) {
   
   if (isLoading) {
@@ -23,7 +18,8 @@ function BlockList({ blocks, onEdit, onDelete, isLoading, canManage }) {
           <th>Mã Block</th>
           <th>Tên Block</th>
           <th>Số Tầng</th>
-          {/* 2. Ẩn/hiện cả cột Hành Động */}
+          
+          {/* Chỉ hiển thị cột Hành Động nếu có quyền quản lý */}
           {canManage && <th className="py-2 px-4 border-b text-left">Hành Động</th>}
         </tr>
       </thead>
@@ -34,7 +30,7 @@ function BlockList({ blocks, onEdit, onDelete, isLoading, canManage }) {
             <td>{block.TenBlock}</td>
             <td>{block.SoTang || 'N/A'}</td>
             
-            {/* 3. Ẩn/hiện các nút Sửa/Xóa */}
+            {/* Chỉ hiển thị các nút thao tác nếu có quyền quản lý */}
             {canManage && (
               <td className="actions">
                 <button onClick={() => onEdit(block)} className="btn-edit">

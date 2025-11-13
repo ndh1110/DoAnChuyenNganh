@@ -1,18 +1,17 @@
-// routes/tang.js
 const express = require('express');
 const router = express.Router();
-const controller = require('../controllers/tangController');
+const tangController = require('../controllers/tangController');
+const { authorize } = require('../middleware/authMiddleware');
 
-// GET /api/tang/
-router.get('/', controller.getAllTangs);
+// 1. AI CŨNG XEM ĐƯỢC (Chỉ cần đăng nhập - đã qua bước 'protect' ở server.js)
+router.get('/', tangController.getAllTangs); 
+router.get('/block/:id', tangController.getTangsByBlockId); // <-- API bị lỗi của bạn nằm ở đây
 
-// GET /api/tang/block/:id (Lấy các tầng của 1 Block)
-router.get('/block/:id', controller.getTangsByBlockId);
+// 2. CHỈ QUẢN LÝ MỚI ĐƯỢC THÊM/SỬA/XÓA
+// Áp dụng authorize('Quản lý') cho các route bên dưới
+router.use(authorize('Quản lý')); 
 
-// POST /api/tang/
-router.post('/', controller.createTang);
-
-// DELETE /api/tang/:id (Xóa 1 tầng)
-router.delete('/:id', controller.deleteTang);
+router.post('/', tangController.createTang);
+router.delete('/:id', tangController.deleteTang);
 
 module.exports = router;

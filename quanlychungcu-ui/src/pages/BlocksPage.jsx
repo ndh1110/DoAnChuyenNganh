@@ -1,33 +1,30 @@
 // src/pages/BlocksPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-// 1. Import Lớp Service
 import { blockService } from '../services/blockService';
-
-// 2. Import các Component "Ngốc"
-// --- (GỘP TỪ HEAD): Import cả Auth và Form ---
 import BlockForm from '../components/BlockForm';
 import { useAuth } from '../context/AuthContext'; 
 import BlockList from '../components/BlockList';
 
 function BlocksPage() {
-  // === 3. Quản lý State ===
   const [blocks, setBlocks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // State cho Modal Form (DÙNG CHUNG)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [currentBlock, setCurrentBlock] = useState(null);
-  
-  // STATE MỚI: Xác định modal đang ở chế độ nào (Từ 'nhan')
-  const [modalMode, setModalMode] = useState('crud'); // 'crud' hoặc 'setup'
+  const [modalMode, setModalMode] = useState('crud');
 
-  // --- (GỘP TỪ HEAD): Lấy user và quyền ---
   const { user } = useAuth(); 
-  const canManageBlocks = user?.role === 'Quản lý';
 
-  // === 4. Logic (useEffect) ===
+  // --- SỬA ĐỔI LOGIC PHÂN QUYỀN TẠI ĐÂY ---
+  // Định nghĩa danh sách các vai trò ĐƯỢC PHÉP quản lý (Thêm/Sửa/Xóa/Setup)
+  const MANAGER_ROLES = ['Quản lý', 'Admin', 'Nhân viên', 'Kỹ thuật'];
+  
+  // Kiểm tra xem role của user hiện tại có nằm trong danh sách quản lý không
+  const canManageBlocks = MANAGER_ROLES.includes(user?.role);
+
+  // (Logic loadBlocks giữ nguyên)
   const loadBlocks = useCallback(async () => {
     try {
       setLoading(true);
@@ -45,30 +42,25 @@ function BlocksPage() {
     loadBlocks();
   }, [loadBlocks]);
 
-  // === 5. Các Hàm Xử Lý Sự Kiện (Event Handlers) ===
-
-  // Mở modal để TẠO MỚI (CRUD)
+  // (Các hàm handleAddNew, handleEdit, handleDelete, handleModalSubmit GIỮ NGUYÊN)
   const handleAddNew = () => {
     setCurrentBlock(null);
-    setModalMode('crud'); // Đặt chế độ
+    setModalMode('crud');
     setIsModalOpen(true);
   };
 
-  // Mở modal để CẬP NHẬT (CRUD)
   const handleEdit = (block) => {
     setCurrentBlock(block);
-    setModalMode('crud'); // Đặt chế độ
+    setModalMode('crud');
     setIsModalOpen(true);
   };
   
-  // Mở modal để SETUP (Nâng cao) (Từ 'nhan')
   const handleOpenSetupModal = () => {
     setCurrentBlock(null);
-    setModalMode('setup'); // Đặt chế độ
+    setModalMode('setup');
     setIsModalOpen(true);
   };
 
-  // Xử lý sự kiện XÓA
   const handleDelete = async (id) => {
     if (window.confirm(`Bạn có chắc muốn xóa Block (ID: ${id})?`)) {
       try {
@@ -86,32 +78,23 @@ function BlocksPage() {
     }
   };
 
-  // Xử lý khi Form (trong modal) được SUBMIT (HÀM TỔNG) (Từ 'nhan')
   const handleModalSubmit = async (formData) => {
-    // formData chứa { TenBlock, SoTang, TongSoCanHo }
     try {
       setFormLoading(true);
       setError(null);
 
       if (modalMode === 'setup') {
-        // --- Chế độ Setup ---
-        const result = await blockService.setup(formData); // Gọi service.setup
+        const result = await blockService.setup(formData);
         alert(result.message || "Setup Block thành công!");
-        
       } else {
-        // --- Chế độ CRUD ---
         if (currentBlock) {
-          // --- Cập nhật (Update)
           await blockService.update(currentBlock.MaBlock, formData);
           alert("Cập nhật Block thành công!");
         } else {
-          // --- Tạo mới (Create)
           await blockService.create(formData);
           alert("Tạo mới Block thành công!");
         }
       }
-
-      // Đóng modal và tải lại danh sách
       setIsModalOpen(false);
       loadBlocks();
     } catch (err) {
@@ -123,13 +106,12 @@ function BlocksPage() {
     }
   };
 
-  // === 6. Render Giao Diện ===
   return (
     <div className="page-container">
       <div className="page-header">
         <h2>Quản lý Chung Cư (Block)</h2>
         
-        {/* --- (GỘP TỪ HEAD): Chỉ hiển thị nút nếu có quyền --- */}
+        {/* Chỉ hiển thị các nút Thêm nếu có quyền quản lý */}
         {canManageBlocks && (
           <div>
             <button onClick={handleAddNew} className="btn-add-new">
@@ -153,18 +135,20 @@ function BlocksPage() {
         onEdit={handleEdit}
         onDelete={handleDelete}
         isLoading={loading}
-        canManage={canManageBlocks} // <-- (Từ HEAD)
+        canManage={canManageBlocks} // Truyền quyền xuống danh sách
       />
       
-      {/* --- (GỘP TỪ NHANH): Render Modal Form duy nhất --- */}
-      <BlockForm
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleModalSubmit} 
-        initialData={currentBlock}
-        isLoading={formLoading}
-        mode={modalMode} 
-      />
+      {/* Chỉ render Form khi cần thiết (dù logic ẩn nút đã chặn người dùng bấm, nhưng thêm điều kiện ở đây cho an toàn) */}
+      {canManageBlocks && (
+        <BlockForm
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={handleModalSubmit} 
+          initialData={currentBlock}
+          isLoading={formLoading}
+          mode={modalMode} 
+        />
+      )}
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-route
 import { AuthProvider, useAuth } from "./context/AuthContext";
 
 // 2. IMPORT CÁC COMPONENT VÀ TRANG
+import ProfilePage from './pages/ProfilePage';
+import HomePage from "./pages/HomePage"; 
 import Navbar from "./components/Navbar";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -62,7 +64,7 @@ function AppContent() {
 
           {/* === Routes Bảo vệ (Protected) === */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Navigate to="/blocks" replace />} />
+            <Route path="/" element={<HomePage />} />
             <Route path="/blocks" element={<BlocksPage />} />
             <Route path="/floors" element={<FloorsPage />} />
             <Route path="/apartments" element={<ApartmentsPage />} />
@@ -74,6 +76,7 @@ function AppContent() {
             <Route path="/requests" element={<RequestsPage />} />
             <Route path="/common-areas" element={<CommonAreasPage />} />
             <Route path="/user-management" element={<UserManagementPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
           </Route>
 
           {/* Route cho 404 Not Found */}

@@ -9,4 +9,13 @@ router.post('/register', controller.registerUser);
 // POST /api/auth/login
 router.post('/login', controller.loginUser);
 
+// =============================================
+// ⭐ ROUTE MỚI: Quên mật khẩu
+// =============================================
+// POST /api/auth/forgot-password
+router.post('/forgot-password', controller.forgotPassword);
+
+// POST /api/auth/reset-password/:token
+router.post('/reset-password/:token', controller.resetPassword);
+
 module.exports = router;

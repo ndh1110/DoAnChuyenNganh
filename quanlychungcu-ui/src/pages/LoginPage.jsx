@@ -73,7 +73,9 @@ function LoginPage() {
             {loading ? 'Đang xử lý...' : 'Đăng Nhập'}
           </button>
         </div>
-        
+        <div className="auth-links" style={{ textAlign: 'right', marginTop: '10px', fontSize: '0.9em' }}>
+          <Link to="/forgot-password">Quên mật khẩu?</Link>
+        </div>
         <p className="auth-switch">
           Chưa có tài khoản? <Link to="/register">Đăng ký ngay</Link>
         </p>

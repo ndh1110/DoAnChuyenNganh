@@ -3,6 +3,8 @@ const mssql = require('mssql');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+//IMPORT DỊCH VỤ EMAIL MỚI
+const { sendPasswordResetEmail } = require('../services/emailService');
 /**
  * POST /api/auth/register - Tạo tài khoản NguoiDung mới
  */
@@ -158,7 +160,100 @@ const loginUser = async (req, res) => {
     }
 };
 
+const forgotPassword = async (req, res) => {
+    try {
+        const { Email } = req.body;
+        const pool = req.pool;
+
+        // 1. Tìm người dùng
+        const userResult = await pool.request()
+            .input('Email', mssql.NVarChar, Email)
+            .query('SELECT MaNguoiDung, Email, HoTen FROM dbo.NguoiDung WHERE Email = @Email');
+
+        // 2. Luôn trả về 200 (OK)
+        // (Đây là biện pháp bảo mật để tránh kẻ tấn công dò email nào đã tồn tại)
+        if (userResult.recordset.length === 0) {
+            return res.status(200).json({ 
+                message: "Nếu email này tồn tại trong hệ thống, một link reset sẽ được gửi." 
+            });
+        }
+        
+        const user = userResult.recordset[0];
+
+        // 3. Tạo Token Reset (dùng JWT_RESET_SECRET, 15 phút)
+        const tokenPayload = { id: user.MaNguoiDung, email: user.Email };
+        const resetToken = jwt.sign(
+            tokenPayload, 
+            process.env.JWT_RESET_SECRET, // 👈 Dùng chìa khóa Reset
+            { expiresIn: '15m' } // 👈 Chỉ có hiệu lực 15 phút
+        );
+
+        // =============================================
+        // ⭐ LOGIC MỚI: GỬI EMAIL THẬT
+        // =============================================
+        try {
+            await sendPasswordResetEmail(user.Email, resetToken);
+            
+            // 4. Trả về thông báo thành công
+            res.json({
+                message: "Yêu cầu thành công. Vui lòng kiểm tra email để đặt lại mật khẩu."
+            });
+            
+        } catch (emailError) {
+             // Nếu emailService.js bị lỗi (ví dụ: sai mật khẩu App, Gmail sập)
+             console.error('Lỗi Backend khi gửi email:', emailError);
+             res.status(500).send('Lỗi máy chủ khi gửi email. Vui lòng thử lại sau.');
+        }
+
+    } catch (err) {
+        console.error('Lỗi Forgot Password:', err);
+        res.status(500).send(err.message);
+    }
+};
+
+/**
+ * POST /api/auth/reset-password/:token - Người dùng đặt mật khẩu mới
+ * (Hàm này giữ nguyên logic, không cần sửa)
+ */
+const resetPassword = async (req, res) => {
+    try {
+        const { token } = req.params;
+        const { newPassword } = req.body;
+        const pool = req.pool;
+
+        if (!newPassword) {
+            return res.status(400).send('Thiếu mật khẩu mới');
+        }
+
+        // 1. Xác thực Token Reset
+        let decoded;
+        try {
+            decoded = jwt.verify(token, process.env.JWT_RESET_SECRET); // 👈 Dùng chìa khóa Reset
+        } catch (err) {
+            return res.status(401).send('Token không hợp lệ hoặc đã hết hạn');
+        }
+
+        // 2. Băm mật khẩu mới
+        const salt = await bcrypt.genSalt(10);
+        const matKhauHash = await bcrypt.hash(newPassword, salt);
+
+        // 3. Cập nhật mật khẩu trong DB
+        await pool.request()
+            .input('MaNguoiDung', mssql.Int, decoded.id)
+            .input('MatKhauHash', mssql.NVarChar, matKhauHash)
+            .query('UPDATE dbo.NguoiDung SET MatKhauHash = @MatKhauHash WHERE MaNguoiDung = @MaNguoiDung');
+
+        res.status(200).send('Mật khẩu đã được cập nhật thành công');
+
+    } catch (err) {
+        console.error('Lỗi Reset Password:', err);
+        res.status(500).send(err.message);
+    }
+};
+
 module.exports = {
     registerUser,
-    loginUser
+    loginUser,
+    forgotPassword,
+    resetPassword
 };

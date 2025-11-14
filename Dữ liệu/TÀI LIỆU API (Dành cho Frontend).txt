@@ -1,6 +1,6 @@
 Đây là tóm tắt 27 API đã được xây dựng và "test oke hết":
-
-## 1. Quản lý Cư dân
+-
+## 1. Quản lý Cư dân-----------------------------
 GET    /api/nguoidung
 GET    /api/nguoidung/:id
 POST   /api/nguoidung
@@ -11,7 +11,8 @@ GET    /api/lichsucutru/:id
 POST   /api/lichsucutru
 PUT    /api/lichsucutru/:id
 DELETE /api/lichsucutru/:id
-## 2. Quản lý Chung cư & Kỹ thuật
+
+## 2. Quản lý Chung cư & Kỹ thuật-----------------------------------
 GET    /api/block
 GET    /api/block/:id
 POST   /api/block
@@ -45,7 +46,8 @@ GET    /api/kiemtra
 GET    /api/kiemtra/khuvuc/:id
 POST   /api/kiemtra
 DELETE /api/kiemtra/:id
-## 3. Quản lý Hợp đồng
+
+## 3. Quản lý Hợp đồng--------------------------------
 GET    /api/hopdong
 GET    /api/hopdong/:id
 POST   /api/hopdong
@@ -55,7 +57,8 @@ GET    /api/dieukhoan/hopdong/:id
 POST   /api/dieukhoan
 PUT    /api/dieukhoan/:id
 DELETE /api/dieukhoan/:id
-## 4. Thanh toán & Dịch vụ
+
+## 4. Thanh toán & Dịch vụ---------------------------
 GET    /api/dichvu
 GET    /api/dichvu/:id
 POST   /api/dichvu
@@ -76,6 +79,8 @@ GET    /api/hoadon/:id
 POST   /api/hoadon
 DELETE /api/hoadon/:id
 POST   /api/hoadon/:id/chitiet
+PUT    /api/hoadon/:id/status
+POST   /api/billing/import-excel
 DELETE /api/chitiet-hoadon/:maCT
 GET    /api/thanhtoan/hoadon/:id
 GET    /api/thanhtoan/:id
@@ -83,7 +88,8 @@ POST   /api/thanhtoan
 DELETE /api/thanhtoan/:id
 GET    /api/giaodich/thanhtoan/:id
 POST   /api/giaodich
-## 5. Hỗ trợ & Yêu cầu
+
+## 5. Hỗ trợ & Yêu cầu--------------------------
 GET    /api/yeucau
 GET    /api/yeucau/:id
 POST   /api/yeucau
@@ -94,7 +100,8 @@ DELETE /api/yeucaulog/:id
 POST   /api/lichhen
 PUT    /api/lichhen/:id
 DELETE /api/lichhen/:id
-## 6. Nhân sự
+
+## 6. Nhân sự=----------------------------
 GET    /api/nhanvien
 GET    /api/nhanvien/:id
 POST   /api/nhanvien
@@ -128,3 +135,14 @@ GET    /api/auditlog
 POST   /api/auditlog
 
 GET    /api/trangthai/context/:contextName
+
+## 8. Authentication (Công khai)---------------------
+POST   /api/auth/register
+POST   /api/auth/login
+POST   /api/auth/forgot-password
+POST   /api/auth/reset-password/:token
+
+## 9. Authorization (Phân quyền)----------------------
+GET    /api/vaitro
+GET    /api/user-roles
+POST   /api/user-roles/:id/sync

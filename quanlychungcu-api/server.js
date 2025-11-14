@@ -1,4 +1,4 @@
-// server.js (ĐÃ CẬP NHẬT VỚI PHÂN QUYỀN)
+// server.js (ĐÃ SỬA LỖI TRÙNG LẶP)
 
 require('dotenv').config();
 const express = require('express');
@@ -94,7 +94,6 @@ app.use('/api/block', protect, roleQuanLy, blockRoutes);
 app.use('/api/tang', protect, roleQuanLy, tangRoutes);
 app.use('/api/dichvu', protect, roleQuanLy, dichVuRoutes);
 app.use('/api/banggia', protect, roleQuanLy, bangGiaRoutes);
-app.use('/api/hoadon', protect, roleQuanLy, hoaDonRoutes);
 app.use('/api/chitiethoadon', protect, roleQuanLy, chiTietHoaDonRoutes);
 app.use('/api/chisodichvu', protect, roleQuanLy, chiSoDichVuRoutes);
 app.use('/api/thanhtoan', protect, roleQuanLy, thanhToanRoutes);
@@ -102,7 +101,6 @@ app.use('/api/giaodich', protect, roleQuanLy, giaoDichThanhToanRoutes);
 app.use('/api/billing', protect, roleQuanLy, billingRoutes);
 app.use('/api/auditlog', protect, roleQuanLy, auditLogRoutes);
 app.use('/api/nhanvien', protect, roleQuanLy, nhanVienRoutes);
-
 
 // === NHÓM 2: VẬN HÀNH (Quản lý & Kỹ thuật) ===
 app.use('/api/khuvucchung', protect, roleQuanLyKyThuat, khuVucChungRoutes);
@@ -118,6 +116,7 @@ app.use('/api/lichhen', protect, roleQuanLyKyThuat, lichHenRoutes);
 
 // === NHÓM 3: CHUNG (Tất cả vai trò đã đăng nhập) ===
 // (Chỉ cần 'protect'. Resident, Quản lý, Kỹ thuật đều có thể xem/dùng)
+// (ĐÃ XÓA CÁC ROUTE BỊ TRÙNG LẶP)
 app.use('/api/nguoidung', protect, nguoiDungRoutes);
 app.use('/api/canho', protect, canHoRoutes);
 app.use('/api/hopdong', protect, hopDongRoutes);
@@ -126,21 +125,12 @@ app.use('/api/lichsucutru', protect, lichSuCuTruRoutes);
 app.use('/api/thongbao', protect, thongBaoRoutes);
 app.use('/api/thongbaonguoidung', protect, thongBaoNguoiDungRoutes);
 app.use('/api/thietbi', protect, thietBiNguoiDungRoutes);
-app.use('/api/auditlog', protect, auditLogRoutes);
-app.use('/api/dieukhoan', protect, dieuKhoanRoutes);
-app.use('/api/nhanvien', protect, nhanVienRoutes);
-app.use('/api/khuvucchung', protect, khuVucChungRoutes);
-app.use('/api/lichtruc', protect, lichTrucRoutes);
-app.use('/api/phancong', protect, phanCongRoutes);
-app.use('/api/suco', protect, suCoRoutes);
-app.use('/api/kiemtrakhuvuc', protect, kiemTraKhuVucRoutes);
 app.use('/api/trangthai', protect, trangThaiRoutes);
-app.use('/api/billing', protect, billingRoutes);
+app.use('/api/hoadon', protect, hoaDonRoutes);
 
 //new
-app.use('/api/vaitro', protect, roleQuanLy, vaiTroRoutes); // 👈 DÒNG 3: THÊM VÀO
+app.use('/api/vaitro', protect, roleQuanLy, vaiTroRoutes);
 app.use('/api/user-roles', protect, roleQuanLy, userRoleRoutes);
-// Bạn có thể thêm các routes khác ở đây
 
 
 // === Khởi động Server ===

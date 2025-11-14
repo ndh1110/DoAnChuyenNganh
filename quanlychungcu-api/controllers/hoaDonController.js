@@ -6,23 +6,42 @@ const mssql = require('mssql');
  */
 const getAllHoaDon = async (req, res) => {
     try {
-        const result = await req.pool.request()
-            .query(`
-                SELECT 
-                    hd.MaHoaDon, hd.KyThang, hd.NgayPhatHanh, hd.NgayDenHan, hd.TongTien,
-                    hd.TrangThai, -- đŸ‘ˆ ÄĂƒ THĂM
-                    ch.MaCanHo, ch.SoCanHo,
-                    t.SoTang,
-                    b.TenBlock
-                FROM dbo.HoaDon hd
-                JOIN dbo.CanHo ch ON hd.MaCanHo = ch.MaCanHo
-                JOIN dbo.Tang t ON ch.MaTang = t.MaTang
-                JOIN dbo.Block b ON t.MaBlock = b.MaBlock
-                ORDER BY hd.KyThang DESC, ch.SoCanHo
-            `);
+        const pool = req.pool;
+        const user = req.user; // Lấy thông tin user từ token
+
+        let query = `
+            SELECT 
+                hd.MaHoaDon, hd.KyThang, hd.NgayPhatHanh, hd.NgayDenHan, hd.TongTien,
+                hd.TrangThai,
+                ch.MaCanHo, ch.SoCanHo,
+                t.SoTang,
+                b.TenBlock
+            FROM dbo.HoaDon hd
+            JOIN dbo.CanHo ch ON hd.MaCanHo = ch.MaCanHo
+            JOIN dbo.Tang t ON ch.MaTang = t.MaTang
+            JOIN dbo.Block b ON t.MaBlock = b.MaBlock
+        `;
+        
+        const request = pool.request();
+
+        // ⭐ LOGIC PHÂN QUYỀN MỚI
+        if (user.role === 'Resident') {
+            // Cư dân chỉ thấy hóa đơn của các căn hộ họ làm chủ hộ (trong Hợp Đồng)
+            query += ` 
+                JOIN dbo.HopDong hd_filter ON ch.MaCanHo = hd_filter.MaCanHo
+                WHERE hd_filter.ChuHoId = @MaNguoiDung
+            `;
+            request.input('MaNguoiDung', mssql.Int, user.id);
+        }
+        // (Quản lý/Kỹ thuật sẽ không vào 'if', lấy tất cả)
+
+        query += ' ORDER BY hd.KyThang DESC, ch.SoCanHo';
+        
+        const result = await request.query(query);
         res.json(result.recordset);
+
     } catch (err) {
-        console.error('Lá»—i GET all HoaDon:', err);
+        console.error('Lỗi GET all HoaDon:', err);
         res.status(500).send(err.message);
     }
 };

@@ -3,12 +3,15 @@ import "./App.css";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
 // 1. IMPORT AUTHPROVIDER VÀ AUTHSERVICE
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext"; 
+import { authService } from "./services/authService";
 
 // 2. IMPORT CÁC COMPONENT VÀ TRANG
 import Navbar from "./components/Navbar";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage"; // <-- 1. IMPORT MỚI
+import ResetPasswordPage from "./pages/ResetPasswordPage"; // <-- 2. IMPORT MỚI
 import ProtectedRoute from "./components/ProtectedRoute";
 import BlocksPage from "./pages/BlocksPage";
 import ResidentsPage from "./pages/ResidentsPage";
@@ -23,16 +26,14 @@ import CommonAreasPage from "./pages/CommonAreasPage";
 import NotFound from "./pages/NotFound";
 import UserManagementPage from "./pages/UserManagementPage";
 
-// AuthGuardEventBridge (Đã đúng, chỉ cần đảm bảo nó nằm trong AuthProvider)
+// (AuthGuardEventBridge giữ nguyên)
 function AuthGuardEventBridge() {
   const navigate = useNavigate();
-  const { logout } = useAuth(); // Lấy hàm logout từ context
-
+  const { logout } = useAuth();
   useEffect(() => {
     const handler = () => {
-      logout(); // Gọi logout từ context (xóa state và localStorage)
+      logout();
       navigate("/login");
-      // KHÔNG CẦN reload, context sẽ tự cập nhật UI
     };
     window.addEventListener("auth:expired", handler);
     return () => window.removeEventListener("auth:expired", handler);
@@ -40,26 +41,26 @@ function AuthGuardEventBridge() {
   return null;
 }
 
-// Component AppContent (Tách ra để có thể dùng useAuth)
+// (AppContent giữ nguyên)
 function AppContent() {
-  const { isLoggedIn } = useAuth(); // Dùng state để quyết định hiển thị Navbar
-
+  const { isLoggedIn } = useAuth();
   return (
     <div className="App">
       <header className="App-header">
         <h1>Hệ Thống Quản lý Chung cư và Dịch vụ Cư dân</h1>
       </header>
-
-      {/* Navbar giờ sẽ tự ẩn/hiện nhờ logic trong Navbar.jsx */}
       <Navbar /> 
-
       <main>
         <AuthGuardEventBridge />
         <Routes>
           {/* === Routes Công khai (Public) === */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-
+          
+          {/* --- 3. THÊM 2 ROUTE MỚI Ở ĐÂY --- */}
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+          
           {/* === Routes Bảo vệ (Protected) === */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Navigate to="/blocks" replace />} />
@@ -76,11 +77,9 @@ function AppContent() {
             <Route path="/user-management" element={<UserManagementPage />} />
           </Route>
 
-          {/* Route cho 404 Not Found */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
-
       <footer>
         <p>Đồ án tốt nghiệp - 2025</p>
       </footer>
@@ -88,7 +87,7 @@ function AppContent() {
   );
 }
 
-// App component chính: Chỉ bọc Router và Provider
+// (App component chính giữ nguyên)
 function App() {
   return (
     <BrowserRouter>

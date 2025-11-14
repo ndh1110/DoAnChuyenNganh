@@ -50,6 +50,27 @@ const getCurrentUser = () => {
     return user ? JSON.parse(user) : null;
 };
 
+/**
+ * Gọi API yêu cầu reset mật khẩu (Backend sẽ gửi email)
+ * @param {object} emailData - { Email: "..." }
+ */
+const forgotPassword = async (emailData) => {
+  // API của bạn: POST /api/auth/forgot-password
+  const response = await api.post('/auth/forgot-password', emailData);
+  return response.data; // Trả về message (ví dụ: "Vui lòng kiểm tra email...")
+};
+
+/**
+ * Gọi API để đặt mật khẩu mới bằng token
+ * @param {string} token - Token từ URL email
+ * @param {object} passwordData - { newPassword: "..." }
+ */
+const resetPassword = async (token, passwordData) => {
+  // API của bạn: POST /api/auth/reset-password/:token
+  const response = await api.post(`/auth/reset-password/${token}`, passwordData);
+  return response.data;
+};
+
 // Cập nhật export
 export const authService = {
   login,
@@ -57,4 +78,6 @@ export const authService = {
   logout,
   getCurrentToken,
   getCurrentUser, // <-- Thêm hàm mới
+  forgotPassword,
+  resetPassword
 };

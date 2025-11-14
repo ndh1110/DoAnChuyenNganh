@@ -7,21 +7,37 @@ const mssql = require('mssql');
  */
 const getAllHopDong = async (req, res) => {
     try {
-        const result = await req.pool.request()
-            .query(`
-                SELECT 
-                    hd.MaHopDong, hd.Loai, hd.NgayKy, hd.NgayHetHan,
-                    nd.MaNguoiDung AS MaChuHo, nd.HoTen AS TenChuHo,
-                    ch.MaCanHo, ch.SoCanHo,
-                    t.SoTang,
-                    b.TenBlock
-                FROM dbo.HopDong hd
-                JOIN dbo.NguoiDung nd ON hd.ChuHoId = nd.MaNguoiDung
-                JOIN dbo.CanHo ch ON hd.MaCanHo = ch.MaCanHo
-                JOIN dbo.Tang t ON ch.MaTang = t.MaTang
-                JOIN dbo.Block b ON t.MaBlock = b.MaBlock
-            `);
+        const pool = req.pool;
+        const user = req.user; // Lấy thông tin user từ token
+
+        let query = `
+            SELECT 
+                hd.MaHopDong, hd.Loai, hd.NgayKy, hd.NgayHetHan,
+                nd.MaNguoiDung AS MaChuHo, nd.HoTen AS TenChuHo,
+                ch.MaCanHo, ch.SoCanHo,
+                t.SoTang,
+                b.TenBlock
+            FROM dbo.HopDong hd
+            JOIN dbo.NguoiDung nd ON hd.ChuHoId = nd.MaNguoiDung
+            JOIN dbo.CanHo ch ON hd.MaCanHo = ch.MaCanHo
+            JOIN dbo.Tang t ON ch.MaTang = t.MaTang
+            JOIN dbo.Block b ON t.MaBlock = b.MaBlock
+        `;
+        
+        const request = pool.request();
+
+        // ⭐ LOGIC PHÂN QUYỀN MỚI
+        if (user.role === 'Resident') {
+            // Cư dân chỉ thấy hợp đồng mà họ là ChuHoId
+            query += ' WHERE hd.ChuHoId = @MaNguoiDung';
+            request.input('MaNguoiDung', mssql.Int, user.id);
+        }
+
+        query += ' ORDER BY hd.NgayKy DESC';
+        
+        const result = await request.query(query);
         res.json(result.recordset);
+
     } catch (err) {
         console.error('Lỗi GET all HopDong:', err);
         res.status(500).send(err.message);

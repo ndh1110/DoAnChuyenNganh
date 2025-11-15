@@ -1,8 +1,8 @@
 // src/components/IncidentList.jsx
 import React from 'react';
 
-// "Dumb Component"
-const IncidentList = ({ incidents, onEdit, onDelete, isLoading }) => {
+// Nhận thêm prop 'canManage'
+const IncidentList = ({ incidents, onEdit, onDelete, isLoading, canManage }) => {
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(dateString));
@@ -24,7 +24,9 @@ const IncidentList = ({ incidents, onEdit, onDelete, isLoading }) => {
             <th className="py-2 px-4 border-b text-left">Mức Độ</th>
             <th className="py-2 px-4 border-b text-left">Trạng Thái</th>
             <th className="py-2 px-4 border-b text-left">NV Xử lý</th>
-            <th className="py-2 px-4 border-b text-left">Hành Động</th>
+            
+            {/* Ẩn cột Hành động nếu không có quyền */}
+            {canManage && <th className="py-2 px-4 border-b text-left">Hành Động</th>}
           </tr>
         </thead>
         <tbody>
@@ -33,28 +35,34 @@ const IncidentList = ({ incidents, onEdit, onDelete, isLoading }) => {
               <td className="py-2 px-4 border-b">{inc.MaSuCo}</td>
               <td className="py-2 px-4 border-b font-medium">{inc.TenKhuVuc}</td>
               <td className="py-2 px-4 border-b" style={{ minWidth: '200px' }}>{inc.MoTa}</td>
-              <td className="py-2 px-4 border-b">{inc.MucDo}</td>
+              <td className="py-2 px-4 border-b">
+                <span className={`badge badge-${inc.MucDo}`}>{inc.MucDo}</span>
+              </td>
               <td className="py-2 px-4 border-b font-semibold">{inc.TrangThai}</td>
               <td className="py-2 px-4 border-b">{inc.TenNhanVienXuLy || 'Chưa gán'}</td>
-              <td className="py-2 px-4 border-b">
-                <button
-                  onClick={() => onEdit(inc)}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded mr-2 btn-edit"
-                >
-                  Sửa
-                </button>
-                <button
-                  onClick={() => onDelete(inc.MaSuCo)}
-                  className="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded btn-delete"
-                >
-                  Xóa
-                </button>
-              </td>
+              
+              {/* Chỉ hiện nút nếu có quyền */}
+              {canManage && (
+                <td className="py-2 px-4 border-b">
+                  <button
+                    onClick={() => onEdit(inc)}
+                    className="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded mr-2 btn-edit"
+                  >
+                    Sửa
+                  </button>
+                  <button
+                    onClick={() => onDelete(inc.MaSuCo)}
+                    className="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded btn-delete"
+                  >
+                    Xóa
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
           {incidents.length === 0 && (
             <tr>
-              <td colSpan="7" className="py-4 text-center text-gray-500">
+              <td colSpan={canManage ? "7" : "6"} className="py-4 text-center text-gray-500">
                 🔧 Không có sự cố kỹ thuật nào được ghi nhận.
               </td>
             </tr>

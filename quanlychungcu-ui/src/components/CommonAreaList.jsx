@@ -1,8 +1,8 @@
 // src/components/CommonAreaList.jsx
 import React from 'react';
 
-// "Dumb Component" - Chỉ nhận props
-const CommonAreaList = ({ areas, onEdit, onDelete, isLoading }) => {
+// Nhận thêm prop 'canManage'
+const CommonAreaList = ({ areas, onEdit, onDelete, isLoading, canManage }) => {
 
     if (isLoading) {
       return <div className="p-4 text-center text-blue-500">Đang tải Khu vực chung...</div>;
@@ -19,7 +19,8 @@ const CommonAreaList = ({ areas, onEdit, onDelete, isLoading }) => {
                         <th className="py-2 px-4 border-b text-left">Thuộc Block</th>
                         <th className="py-2 px-4 border-b text-left">Loại</th>
                         <th className="py-2 px-4 border-b text-left">Trạng Thái</th>
-                        <th className="py-2 px-4 border-b text-left">Hành Động</th>
+                        {/* Chỉ hiện cột Hành động nếu có quyền */}
+                        {canManage && <th className="py-2 px-4 border-b text-left">Hành Động</th>}
                     </tr>
                 </thead>
                 <tbody>
@@ -30,23 +31,21 @@ const CommonAreaList = ({ areas, onEdit, onDelete, isLoading }) => {
                             <td className="py-2 px-4 border-b">{area.TenBlock}</td>
                             <td className="py-2 px-4 border-b">{area.Loai}</td>
                             <td className="py-2 px-4 border-b">{area.TrangThai}</td>
-                            <td className="py-2 px-4 border-b actions">
-                                <button onClick={() => onEdit(area)} className="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded mr-2 btn-edit">
-                                  Sửa
-                                </button>
-                                <button onClick={() => onDelete(area.MaKhuVucChung)} className="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded btn-delete">
-                                  Xóa
-                                </button>
-                            </td>
+                            
+                            {/* Chỉ hiện nút Sửa/Xóa nếu có quyền */}
+                            {canManage && (
+                                <td className="py-2 px-4 border-b actions">
+                                    <button onClick={() => onEdit(area)} className="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded mr-2 btn-edit">
+                                    Sửa
+                                    </button>
+                                    <button onClick={() => onDelete(area.MaKhuVucChung)} className="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded btn-delete">
+                                    Xóa
+                                    </button>
+                                </td>
+                            )}
                         </tr>
                     ))}
-                    {areas.length === 0 && (
-                        <tr>
-                            <td colSpan="6" className="py-4 text-center text-gray-500">
-                                🏞️ Chưa có khu vực chung nào được thiết lập.
-                            </td>
-                        </tr>
-                    )}
+                    {/* ... (phần empty state giữ nguyên, chỉnh colSpan nếu cần) ... */}
                 </tbody>
             </table>
         </div>

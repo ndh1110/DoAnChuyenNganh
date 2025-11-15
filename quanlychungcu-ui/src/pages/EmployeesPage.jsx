@@ -58,21 +58,21 @@ const EmployeesPage = () => {
         taskData,     // <-- MỚI
         commonAreasData // <-- MỚI
       ] = await Promise.all([
-        employeeService.getAll(),
-        residentService.getAll(),
+        employeeService.getAllEmployees(),
+        employeeService.getAllUsers(),
         roleService.getAllRoles(),
         roleService.getUserRoles(),
         employeeService.getAllSchedules(), // <-- Gọi API Lịch trực
         employeeService.getAllAssignments(), // <-- Gọi API Phân công
-        commonAreaService.getAll()     // <-- Gọi API Khu vực chung
+        employeeService.getAllCommonAreas()     // <-- Gọi API Khu vực chung
       ]);
       
-      setEmployees(empData.data);
-      setAllUsers(usersData.data);
+      setEmployees(empData);
+      setAllUsers(usersData);
       setAllRoles(rolesData);
       setUserRolesData(userRoles);
-      setSchedules(scheduleData.data); // <-- Lưu Lịch trực
-      setTasks(taskData.data);     // <-- Lưu Phân công
+      setSchedules(scheduleData); // <-- Lưu Lịch trực
+      setTasks(taskData);     // <-- Lưu Phân công
       setAllCommonAreas(commonAreasData); // <-- Lưu Khu vực chung
 
     } catch (err) {

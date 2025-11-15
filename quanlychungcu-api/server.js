@@ -100,7 +100,7 @@ app.use('/api/nhanvien', protect, roleQuanLy, nhanVienRoutes); // Quản lý nh�
 app.use('/api/vaitro', protect, roleQuanLy, vaiTroRoutes);
 app.use('/api/user-roles', protect, roleQuanLy, userRoleRoutes);
 
-// === NHÓM 2: VẬN HÀNH (Quản lý & Kỹ thuật) ===
+// === C. VẬN HÀNH (Quản lý & Kỹ thuật) ===
 app.use('/api/khuvucchung', protect, roleQuanLyKyThuat, khuVucChungRoutes);
 app.use('/api/lichtruc', protect, roleQuanLyKyThuat, lichTrucRoutes);
 app.use('/api/phancong', protect, roleQuanLyKyThuat, phanCongRoutes);

@@ -32,8 +32,8 @@ function EmployeeList({ employees, onEdit, onDelete, isLoading, canManage }) {
           <th>Mã NV</th>
           <th>Họ Tên</th>
           <th>Email (Tài khoản)</th>
-          <th>Ngày vào làm</th> {/* <-- CỘT MỚI */}
-          <th>Mã số thuế</th> {/* <-- CỘT MỚI */}
+          <th>Ngày vào làm</th>
+          <th>Mã số thuế</th>
           <th>Trạng Thái</th>
           {canManage && <th>Hành Động</th>}
         </tr>
@@ -44,8 +44,8 @@ function EmployeeList({ employees, onEdit, onDelete, isLoading, canManage }) {
             <td>{emp.MaNhanVien}</td>
             <td>{emp.HoTen}</td>
             <td>{emp.Email}</td>
-            <td>{formatDate(emp.NgayVaoLam)}</td> {/* <-- DỮ LIỆU MỚI */}
-            <td>{emp.MaSoThue || 'N/A'}</td> {/* <-- DỮ LIỆU MỚI */}
+            <td>{formatDate(emp.NgayVaoLam)}</td> 
+            <td>{emp.MaSoThue || 'N/A'}</td>
             <td>{emp.TrangThai}</td>
             
             {/* Ẩn/hiện dựa trên quyền "Quản lý" (đã có) */}

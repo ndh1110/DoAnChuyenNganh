@@ -1,7 +1,5 @@
 import api from './api.js';
 
-const API_ENDPOINT = '/kiemtrakhuvuc'; // (Lưu ý: route của bạn là kiemtrakhuvuc, không phải kiemtra)
-
 /**
  * Lớp Service: Chứa tất cả các hàm gọi API liên quan đến "Kiểm Tra Khu Vực"
  */
@@ -9,7 +7,7 @@ const API_ENDPOINT = '/kiemtrakhuvuc'; // (Lưu ý: route của bạn là kiemtr
 // API cho Kiểm Tra Kỹ Thuật (GET /api/kiemtrakhuvuc)
 const getAll = async () => {
   try {
-    const response = await api.get(API_ENDPOINT);
+    const response = await api.get('/kiemtra');
     return response.data; // Trả về data
   } catch (error) {
     console.error("Lỗi khi lấy Lịch sử kiểm tra:", error.response || error);
@@ -23,7 +21,7 @@ const getAll = async () => {
  */
 const getByKhuVucId = async (khuVucId) => {
     try {
-        const response = await api.get(`${API_ENDPOINT}/kiemtrakhuvuc/${khuVucId}`);
+        const response = await api.get(`${'/kiemtra'}/kiemtra/${khuVucId}`);
         return response.data;
     } catch (error) {
         console.error(`Lỗi khi lấy kiểm tra cho KVC ID ${khuVucId}:`, error.response || error);
@@ -37,7 +35,7 @@ const getByKhuVucId = async (khuVucId) => {
  */
 const create = async (data) => {
     try {
-        const response = await api.post(API_ENDPOINT, data);
+        const response = await api.post('/kiemtra', data);
         return response.data;
     } catch (error) {
         console.error("Lỗi khi tạo nhật ký kiểm tra:", error.response || error);
@@ -51,7 +49,7 @@ const create = async (data) => {
  */
 const deleteById = async (id) => {
     try {
-        const response = await api.delete(`${API_ENDPOINT}/${id}`);
+        const response = await api.delete(`${'/kiemtra'}/${id}`);
         return response.data;
     } catch (error) {
         console.error(`Lỗi khi xóa nhật ký kiểm tra ID ${id}:`, error.response || error);

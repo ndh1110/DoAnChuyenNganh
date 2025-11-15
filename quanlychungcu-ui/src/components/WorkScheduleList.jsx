@@ -22,35 +22,41 @@ const WorkScheduleList = ({ schedules, onEdit, onDelete }) => {
           </tr>
         </thead>
         <tbody>
-          {schedules.map((sch) => (
-            <tr key={sch.MaLichTruc} className="hover:bg-gray-50">
-              {/* Giả định API /api/lichtruc đã JOIN và trả về HoTen */}
-              <td className="py-2 px-4 border-b font-medium">{sch.HoTen || `(Mã NV: ${sch.MaNhanVien})`}</td>
-              <td className="py-2 px-4 border-b">{formatDate(sch.Ngay)}</td>
-              <td className="py-2 px-4 border-b">{sch.Ca}</td>
-              <td className="py-2 px-4 border-b">{sch.GhiChu}</td>
-              <td className="py-2 px-4 border-b">
-                <button
-                  onClick={() => onEdit(sch)}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded mr-2"
-                >
-                  Sửa
-                </button>
-                <button
-                  onClick={() => onDelete(sch.MaLichTruc)}
-                  className="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded"
-                >
-                  Xóa
-                </button>
-              </td>
-            </tr>
-          ))}
-          {schedules.length === 0 && (
-            <tr>
+          {schedules.length === 0 ? (
+            <tr key="empty-row">
               <td colSpan="5" className="py-4 text-center text-gray-500">
                 🗓️ Chưa có lịch trực nào được xếp.
               </td>
             </tr>
+          ) : (
+            schedules.map((sch, idx) => {
+              const rowKey = sch && sch.MaLichTruc
+                ? String(sch.MaLichTruc)
+                : `${sch?.MaNhanVien ?? 'nv'}-${sch?.Ngay ?? 'unknown'}-${sch?.Ca ?? idx}-${idx}`;
+              return (
+                <tr key={rowKey} className="hover:bg-gray-50">
+                  {/* Giả định API /api/lichtruc đã JOIN và trả về HoTen */}
+                  <td className="py-2 px-4 border-b font-medium">{sch.HoTen || `(Mã NV: ${sch.MaNhanVien})`}</td>
+                  <td className="py-2 px-4 border-b">{formatDate(sch.Ngay)}</td>
+                  <td className="py-2 px-4 border-b">{sch.Ca}</td>
+                  <td className="py-2 px-4 border-b">{sch.GhiChu}</td>
+                  <td className="py-2 px-4 border-b">
+                    <button
+                      onClick={() => onEdit(sch)}
+                      className="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded mr-2"
+                    >
+                      Sửa
+                    </button>
+                    <button
+                      onClick={() => onDelete(sch.MaLichTruc)}
+                      className="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded"
+                    >
+                      Xóa
+                    </button>
+                  </td>
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>

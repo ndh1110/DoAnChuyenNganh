@@ -1,19 +1,10 @@
 // src/components/ApartmentList.jsx
 import React from 'react';
 
-/**
- * Component "Ngốc" (Dumb Component)
- * - Hiển thị danh sách các căn hộ đã được lọc và "làm giàu" (hydrated).
- */
-function ApartmentList({ apartments, onEdit, onDelete, isLoading }) {
+function ApartmentList({ apartments, onEdit, onDelete, isLoading, canManage }) { // <-- Nhận props canManage
 
-  if (isLoading) {
-    return <div>Đang tải dữ liệu căn hộ...</div>;
-  }
-
-  if (apartments.length === 0) {
-    return <div>Không có căn hộ nào phù hợp với bộ lọc.</div>;
-  }
+  if (isLoading) return <div>Đang tải dữ liệu căn hộ...</div>;
+  if (apartments.length === 0) return <div>Không có căn hộ nào phù hợp.</div>;
 
   return (
     <table className="data-table">
@@ -26,7 +17,8 @@ function ApartmentList({ apartments, onEdit, onDelete, isLoading }) {
           <th>Loại Căn Hộ</th>
           <th>Diện Tích (m²)</th>
           <th>Trạng Thái</th>
-          <th>Hành Động</th>
+          {/* Ẩn cột hành động nếu không phải quản lý */}
+          {canManage && <th>Hành Động</th>}
         </tr>
       </thead>
       <tbody>
@@ -39,14 +31,14 @@ function ApartmentList({ apartments, onEdit, onDelete, isLoading }) {
             <td>{apt.LoaiCanHo || 'N/A'}</td>
             <td>{apt.DienTich || 'N/A'}</td>
             <td>{apt.TenTrangThai || 'N/A'}</td>
-            <td className="actions">
-              <button onClick={() => onEdit(apt)} className="btn-edit">
-                Sửa
-              </button>
-              <button onClick={() => onDelete(apt.MaCanHo)} className="btn-delete">
-                Xóa
-              </button>
-            </td>
+            
+            {/* Ẩn nút sửa/xóa nếu không phải quản lý */}
+            {canManage && (
+              <td className="actions">
+                <button onClick={() => onEdit(apt)} className="btn-edit">Sửa</button>
+                <button onClick={() => onDelete(apt.MaCanHo)} className="btn-delete">Xóa</button>
+              </td>
+            )}
           </tr>
         ))}
       </tbody>

@@ -47,6 +47,7 @@ export default function Navbar() {
       <NavLink to="/blocks" style={linkStyle}>Blocks</NavLink>
       <NavLink to="/floors" style={linkStyle}>Floors</NavLink>
       <NavLink to="/apartments" style={linkStyle}>Apartments</NavLink>
+      <NavLink to="/showcase" style={linkStyle}>Thư viện Ảnh</NavLink>
       
       {/* Tiện ích & Dịch vụ */}
       <NavLink to="/services" style={linkStyle}>Dịch vụ</NavLink>

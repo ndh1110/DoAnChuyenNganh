@@ -3,7 +3,8 @@ const mssql = require('mssql');
 const xlsx = require('xlsx');
 
 /**
- * GET /api/canho - (Cập nhật) Thêm LoaiCanHo, DienTich
+ * GET /api/canho
+ * Lấy danh sách căn hộ (Kèm cột HinhAnh)
  */
 const getAllCanHo = async (req, res) => {
     try {
@@ -11,10 +12,11 @@ const getAllCanHo = async (req, res) => {
             .query(`
                 SELECT 
                     ch.MaCanHo, ch.SoCanHo,
-                    ch.LoaiCanHo, ch.DienTich, -- ĐÃ THÊM
+                    ch.LoaiCanHo, ch.DienTich,
+                    ch.HinhAnh, -- <--- THÊM: Lấy đường dẫn ảnh
                     t.MaTang, t.SoTang,
                     b.MaBlock, b.TenBlock,
-                    ch.MaTrangThai, -- ĐÃ THÊM
+                    ch.MaTrangThai,
                     ISNULL(tt.Ten, 'N/A') AS TenTrangThai
                 FROM dbo.CanHo ch
                 JOIN dbo.Tang t ON ch.MaTang = t.MaTang
@@ -30,7 +32,8 @@ const getAllCanHo = async (req, res) => {
 };
 
 /**
- * GET /api/canho/:id - (Cập nhật) Thêm LoaiCanHo, DienTich
+ * GET /api/canho/:id
+ * Lấy chi tiết 1 căn hộ
  */
 const getCanHoById = async (req, res) => {
     try {
@@ -39,7 +42,7 @@ const getCanHoById = async (req, res) => {
             .input('MaCanHo', mssql.Int, id)
             .query(`
                 SELECT 
-                    ch.*, -- Lấy tất cả các cột từ CanHo (bao gồm cả LoaiCanHo, DienTich)
+                    ch.*, -- Đã bao gồm HinhAnh
                     t.SoTang,
                     b.TenBlock,
                     ISNULL(tt.Ten, 'N/A') AS TenTrangThai
@@ -61,13 +64,21 @@ const getCanHoById = async (req, res) => {
 };
 
 /**
- * POST /api/canho - (Cập nhật) Thêm LoaiCanHo, DienTich
+ * POST /api/canho
+ * Tạo mới căn hộ (Có xử lý upload ảnh)
  */
 const createCanHo = async (req, res) => {
     try {
-        // ĐÃ THÊM LoaiCanHo, DienTich
         const { SoCanHo, MaTang, MaTrangThai, LoaiCanHo, DienTich } = req.body; 
 
+        // 1. XỬ LÝ FILE ẢNH (Nếu có)
+        let hinhAnhPath = null;
+        if (req.file) {
+            // Multer trả về đường dẫn có dấu '\' trên Windows, cần đổi thành '/' cho URL
+            hinhAnhPath = req.file.path.replace(/\\/g, "/");
+        }
+
+        // Validate dữ liệu bắt buộc
         if (!SoCanHo || !MaTang) {
             return res.status(400).send('Thiếu SoCanHo hoặc MaTang');
         }
@@ -78,8 +89,9 @@ const createCanHo = async (req, res) => {
             .input('MaTrangThai', mssql.Int, MaTrangThai)
             .input('LoaiCanHo', mssql.NVarChar, LoaiCanHo)
             .input('DienTich', mssql.Decimal(10, 2), DienTich)
-            .query(`INSERT INTO dbo.CanHo (SoCanHo, MaTang, MaTrangThai, LoaiCanHo, DienTich) 
-                    OUTPUT Inserted.* VALUES (@SoCanHo, @MaTang, @MaTrangThai, @LoaiCanHo, @DienTich)`);
+            .input('HinhAnh', mssql.NVarChar, hinhAnhPath) // <--- Input HinhAnh
+            .query(`INSERT INTO dbo.CanHo (SoCanHo, MaTang, MaTrangThai, LoaiCanHo, DienTich, HinhAnh) 
+                    OUTPUT Inserted.* VALUES (@SoCanHo, @MaTang, @MaTrangThai, @LoaiCanHo, @DienTich, @HinhAnh)`);
         
         res.status(201).json(result.recordset[0]);
     } catch (err) {
@@ -92,15 +104,22 @@ const createCanHo = async (req, res) => {
 };
 
 /**
- * PUT /api/canho/:id - (Cập nhật) Thêm LoaiCanHo, DienTich
+ * PUT /api/canho/:id
+ * Cập nhật căn hộ (Có xử lý cập nhật ảnh)
  */
 const updateCanHo = async (req, res) => {
     try {
         const { id } = req.params;
-        // ĐÃ THÊM LoaiCanHo, DienTich
         const { SoCanHo, MaTang, MaTrangThai, LoaiCanHo, DienTich } = req.body;
         const pool = req.pool;
 
+        // 1. Kiểm tra xem có file ảnh mới được upload không
+        let newHinhAnhPath = undefined;
+        if (req.file) {
+            newHinhAnhPath = req.file.path.replace(/\\/g, "/");
+        }
+
+        // 2. Lấy dữ liệu cũ từ DB
         const oldDataResult = await pool.request()
             .input('MaCanHo', mssql.Int, id)
             .query('SELECT * FROM dbo.CanHo WHERE MaCanHo = @MaCanHo');
@@ -110,13 +129,17 @@ const updateCanHo = async (req, res) => {
         }
         const oldData = oldDataResult.recordset[0];
 
-        // Trộn dữ liệu
+        // 3. Trộn dữ liệu (Merge)
         const newSoCanHo = SoCanHo !== undefined ? SoCanHo : oldData.SoCanHo;
         const newMaTang = MaTang !== undefined ? MaTang : oldData.MaTang;
         const newMaTrangThai = MaTrangThai !== undefined ? MaTrangThai : oldData.MaTrangThai;
         const newLoaiCanHo = LoaiCanHo !== undefined ? LoaiCanHo : oldData.LoaiCanHo;
         const newDienTich = DienTich !== undefined ? DienTich : oldData.DienTich;
+        
+        // Logic ảnh: Nếu có ảnh mới -> dùng mới. Nếu không -> dùng lại ảnh cũ.
+        const finalHinhAnh = newHinhAnhPath !== undefined ? newHinhAnhPath : oldData.HinhAnh;
 
+        // 4. Thực hiện Update
         const result = await pool.request()
             .input('MaCanHo', mssql.Int, id)
             .input('SoCanHo', mssql.NVarChar, newSoCanHo)
@@ -124,9 +147,10 @@ const updateCanHo = async (req, res) => {
             .input('MaTrangThai', mssql.Int, newMaTrangThai)
             .input('LoaiCanHo', mssql.NVarChar, newLoaiCanHo)
             .input('DienTich', mssql.Decimal(10, 2), newDienTich)
+            .input('HinhAnh', mssql.NVarChar, finalHinhAnh) // <--- Update HinhAnh
             .query(`UPDATE dbo.CanHo 
                     SET SoCanHo = @SoCanHo, MaTang = @MaTang, MaTrangThai = @MaTrangThai,
-                        LoaiCanHo = @LoaiCanHo, DienTich = @DienTich
+                        LoaiCanHo = @LoaiCanHo, DienTich = @DienTich, HinhAnh = @HinhAnh
                     OUTPUT Inserted.* WHERE MaCanHo = @MaCanHo`);
         
         res.json(result.recordset[0]);
@@ -162,10 +186,9 @@ const deleteCanHo = async (req, res) => {
     }
 };
 
-
 /**
- * POST /api/canho/import-excel - (Cập nhật)
- * File Excel giờ có "Số Thứ Tự" thay vì "Mã Căn Hộ".
+ * POST /api/canho/import-excel
+ * (Giữ nguyên logic Import Excel cũ - Không hỗ trợ import ảnh qua Excel)
  */
 const importFromExcel = async (req, res) => {
     if (!req.file) {
@@ -177,18 +200,15 @@ const importFromExcel = async (req, res) => {
     let insertedCount = 0;
 
     try {
-        // --- 1. Đọc dữ liệu từ Excel buffer ---
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         
-        // ĐỔI TÊN HEADER (SoCanHo -> SoThuTu)
         const data = xlsx.utils.sheet_to_json(worksheet, {
              header: ["TenBlock", "SoTang", "SoThuTu", "LoaiCanHo", "DienTich"],
-             range: 1 // Bỏ qua dòng header đầu tiên
+             range: 1
         });
 
-        // --- 2. Lấy dữ liệu Tầng/Block để tra cứu ---
         const tangLookupResult = await req.pool.request().query(`
             SELECT t.MaTang, t.SoTang, b.TenBlock 
             FROM dbo.Tang t 
@@ -196,8 +216,6 @@ const importFromExcel = async (req, res) => {
         `);
         
         const tangMap = new Map();
-        // TẠO MAP PHỨC TẠP HƠN
-        // Map này chứa tất cả thông tin cần để tạo Mã Căn Hộ
         tangLookupResult.recordset.forEach(t => {
             const key = `${t.TenBlock.trim()}-${t.SoTang}`;
             tangMap.set(key, { 
@@ -207,13 +225,12 @@ const importFromExcel = async (req, res) => {
             });
         });
 
-        // --- 3. Xử lý và Validate dữ liệu ---
         let processedData = [];
         for (let i = 0; i < data.length; i++) {
             const row = data[i];
             const tenBlock = row.TenBlock ? row.TenBlock.trim() : null;
             const soTang = row.SoTang;
-            const soThuTu = row.SoThuTu; // LẤY SỐ THỨ TỰ
+            const soThuTu = row.SoThuTu;
 
             if (!tenBlock || !soTang || !soThuTu) {
                 errorList.push(`Dòng ${i + 2}: Thiếu Tên Block, Số Tầng, hoặc Số Thứ Tự.`);
@@ -221,33 +238,29 @@ const importFromExcel = async (req, res) => {
             }
 
             const lookupKey = `${tenBlock}-${soTang}`;
-            const tangData = tangMap.get(lookupKey); // LẤY DỮ LIỆU TẦNG
+            const tangData = tangMap.get(lookupKey);
 
             if (!tangData) {
                 errorList.push(`Dòng ${i + 2}: Không tìm thấy Tầng (Block: ${tenBlock}, Tầng: ${soTang}).`);
                 continue;
             }
 
-            // --- LOGIC TẠO MÃ CĂN HỘ (ĐÃ SỬA) ---
-            // Tách "Block A" -> "A"
             const tenBlockParts = tangData.TenBlock.split(' ');
-            const tenBlockShort = tenBlockParts[tenBlockParts.length - 1]; // Lấy phần tử cuối
+            const tenBlockShort = tenBlockParts[tenBlockParts.length - 1];
             
             const soTangStr = String(tangData.SoTang).padStart(2, '0');
             const soThuTuStr = String(soThuTu).padStart(2, '0');
             const generatedSoCanHo = `${tenBlockShort}.${soTangStr}.${soThuTuStr}`;
-            // -----------------------------------------------
 
             processedData.push({
                 MaTang: tangData.MaTang,
-                SoCanHo: generatedSoCanHo, // DÙNG MÃ VỪA TẠO
+                SoCanHo: generatedSoCanHo,
                 LoaiCanHo: row.LoaiCanHo || null,
                 DienTich: row.DienTich || null,
-                MaTrangThai: 8 // Gán trạng thái "Trống"
+                MaTrangThai: 8 
             });
         }
 
-        // --- 4. Bắt đầu Transaction và Insert ---
         if (errorList.length === 0 && processedData.length > 0) {
             await transaction.begin();
 
@@ -258,8 +271,9 @@ const importFromExcel = async (req, res) => {
                     .input('MaTrangThai', mssql.Int, canHo.MaTrangThai)
                     .input('LoaiCanHo', mssql.NVarChar, canHo.LoaiCanHo)
                     .input('DienTich', mssql.Decimal(10, 2), canHo.DienTich)
-                    .query(`INSERT INTO dbo.CanHo (SoCanHo, MaTang, MaTrangThai, LoaiCanHo, DienTich) 
-                            VALUES (@SoCanHo, @MaTang, @MaTrangThai, @LoaiCanHo, @DienTich)`);
+                    // Import Excel mặc định HinhAnh là NULL
+                    .query(`INSERT INTO dbo.CanHo (SoCanHo, MaTang, MaTrangThai, LoaiCanHo, DienTich, HinhAnh) 
+                            VALUES (@SoCanHo, @MaTang, @MaTrangThai, @LoaiCanHo, @DienTich, NULL)`);
                 insertedCount++;
             }
 
@@ -291,7 +305,6 @@ const importFromExcel = async (req, res) => {
         res.status(500).json({ message: 'Lỗi server khi import.', errors: [err.message] });
     }
 };
-
 
 module.exports = {
     getAllCanHo,

@@ -1,7 +1,9 @@
 // src/pages/CommonAreasPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 
-// 1. Import Services và Components
+// 1. Import useAuth
+import { useAuth } from '../context/AuthContext';
+
 import { commonAreaService } from '../services/commonAreaService';
 import { incidentService } from '../services/incidentService';
 import { inspectionService } from '../services/inspectionService';
@@ -16,7 +18,15 @@ import IncidentForm from '../components/IncidentForm.jsx';
 import InspectionForm from '../components/InspectionForm.jsx';
 
 const CommonAreasPage = () => {
-  // 2. Quản lý State (Không đổi)
+  // --- LOGIC PHÂN QUYỀN ---
+  const { user } = useAuth();
+  // Nhóm quyền được quản lý kỹ thuật (bao gồm Kỹ thuật viên)
+  const canManageTech = ['Quản lý', 'Admin', 'Kỹ thuật'].includes(user?.role);
+  // Nhóm quyền được quản lý cấu trúc (Thêm/Sửa Khu vực) - Có thể chỉ dành cho Quản lý
+  const canManageArea = ['Quản lý', 'Admin'].includes(user?.role);
+
+  // -------------------------
+
   const [commonAreas, setCommonAreas] = useState([]);
   const [incidents, setIncidents] = useState([]);
   const [inspections, setInspections] = useState([]);
@@ -29,27 +39,35 @@ const CommonAreasPage = () => {
     initialData: null,
   });
 
-  // 3. Logic Fetch Data
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // (Gọi API y hệt như file EmployeesPage)
-      const [areaRes, incidentRes, inspectRes, blockRes, empRes] = await Promise.all([
+      // Nếu là Cư dân -> Chỉ cần tải danh sách Khu vực và Sự cố (để xem)
+      // Nếu là Tech -> Tải hết
+      const promises = [
         commonAreaService.getAll(),    
         incidentService.getAll(),      
-        inspectionService.getAll(),
         blockService.getAll(),          
-        employeeService.getAllEmployees(), // Đã sửa ở bước trước
-      ]);
+      ];
+
+      // Chỉ tải Inspection và Employee nếu có quyền kỹ thuật
+      if (canManageTech) {
+          promises.push(inspectionService.getAll());
+          promises.push(employeeService.getAllEmployees());
+      }
+
+      const results = await Promise.all(promises);
       
-      // --- THAY ĐỔI 1: Bỏ '.data' (vì service đã xử lý) ---
-      setCommonAreas(areaRes); 
-      setIncidents(incidentRes); 
-      setInspections(inspectRes);
-      setAllBlocks(blockRes);
-      setAllEmployees(empRes); 
+      setCommonAreas(results[0]); 
+      setIncidents(results[1]); 
+      setAllBlocks(results[2]);
+
+      if (canManageTech) {
+          setInspections(results[3]);
+          setAllEmployees(results[4]); 
+      }
 
     } catch (err) {
       console.error("Lỗi khi tải dữ liệu Kỹ thuật:", err);
@@ -57,15 +75,13 @@ const CommonAreasPage = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canManageTech]); // Thêm dependency
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // 4. Logic CRUD Handlers (Không đổi)
   const handleFormSubmit = async (formData) => {
-    /* ... (Logic handleFormSubmit không đổi) ... */
     try {
       const { modalType, initialData } = formState;
       
@@ -74,6 +90,9 @@ const CommonAreasPage = () => {
         else await commonAreaService.create(formData);
       
       } else if (modalType === 'INCIDENT') {
+        // Cư dân cũng có thể báo sự cố? Nếu có, không cần chặn ở đây.
+        // Nếu chỉ Tech mới báo sự cố hệ thống -> Chặn.
+        // Giả sử Cư dân ĐƯỢC báo sự cố:
         if (initialData) await incidentService.update(initialData.MaSuCo, formData);
         else await incidentService.create(formData);
       
@@ -82,7 +101,7 @@ const CommonAreasPage = () => {
       }
       
       closeForm();
-      fetchData(); // Tải lại toàn bộ
+      fetchData();
     } catch (err) {
        console.error("Lỗi khi lưu dữ liệu:", err);
        setError(err.response?.data || err.message);
@@ -90,12 +109,11 @@ const CommonAreasPage = () => {
   };
 
   const handleDelete = async (type, id) => {
-    /* ... (Logic handleDelete không đổi) ... */
     let confirmMessage = `Bạn có chắc muốn xóa (ID: ${id})?`;
     let deleteAction;
 
     if (type === 'AREA') {
-        confirmMessage = `Xóa Khu vực (ID: ${id})? (Sẽ xóa/gỡ liên kết Sự cố, Kiểm tra, Phân công)`;
+        confirmMessage = `Xóa Khu vực (ID: ${id})?`;
         deleteAction = () => commonAreaService.delete(id);
     } else if (type === 'INCIDENT') {
         deleteAction = () => incidentService.delete(id);
@@ -106,7 +124,7 @@ const CommonAreasPage = () => {
     if (window.confirm(confirmMessage)) {
       try {
         await deleteAction();
-        fetchData(); // Tải lại
+        fetchData(); 
       } catch (err) {
         console.error("Lỗi khi xóa:", err);
         setError(err.message);
@@ -121,9 +139,7 @@ const CommonAreasPage = () => {
     setFormState({ modalType: null, initialData: null });
   };
 
-  // 6. Render UI (Không đổi)
   const renderModal = () => {
-    /* ... (Logic renderModal không đổi) ... */
     const { modalType, initialData } = formState;
     if (!modalType) return null;
 
@@ -155,51 +171,66 @@ const CommonAreasPage = () => {
   return (
     <div className="common-areas-page container mx-auto p-6">
       
-      {/* --- MODALS --- */}
       {renderModal()}
 
-      {/* --- Tiêu đề Trang & Nút bấm (Không đổi) --- */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-semibold text-gray-800">
-          🏞️ Quản lý Kỹ thuật & Vận hành
+          🏞️ Khu vực chung & Tiện ích
         </h1>
+        
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => openForm('AREA')}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow-md">
-            + Thêm Khu Vực
-          </button>
+          {/* 1. NÚT THÊM KHU VỰC: Chỉ Quản lý */}
+          {canManageArea && (
+            <button onClick={() => openForm('AREA')}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow-md">
+                + Thêm Khu Vực
+            </button>
+          )}
+
+          {/* 2. NÚT BÁO SỰ CỐ: Cho phép cả Cư dân (để báo hỏng hóc) */}
           <button onClick={() => openForm('INCIDENT')}
             className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded shadow-md">
             + Báo Sự Cố
           </button>
-          <button onClick={() => openForm('INSPECTION')}
-            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow-md">
-            + Ghi Kiểm Tra
-          </button>
+
+          {/* 3. NÚT GHI KIỂM TRA: Chỉ Kỹ thuật/Quản lý */}
+          {canManageTech && (
+            <button onClick={() => openForm('INSPECTION')}
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow-md">
+                + Ghi Kiểm Tra
+            </button>
+          )}
         </div>
       </div>
       <hr className="mb-6" />
 
       {error && <div className="p-6 text-red-600 text-center font-semibold">❌ Lỗi API: {error}</div>}
 
-      {/* --- Hiển thị các danh sách (Không đổi) --- */}
       <CommonAreaList
         areas={commonAreas}
         isLoading={loading}
         onEdit={(data) => openForm('AREA', data)}
         onDelete={(id) => handleDelete('AREA', id)}
+        canManage={canManageArea} // <--- TRUYỀN QUYỀN XUỐNG LIST
       />
+      
+      {/* Danh sách sự cố (Ai cũng xem được để biết tình trạng) */}
       <IncidentList
         incidents={incidents}
         isLoading={loading}
-        onEdit={(data) => openForm('INCIDENT', data)}
+        onEdit={(data) => canManageTech && openForm('INCIDENT', data)} // Chỉ Tech mới sửa trạng thái sự cố
         onDelete={(id) => handleDelete('INCIDENT', id)}
+        canManage={canManageTech}
       />
-      <InspectionList
-        inspections={inspections}
-        isLoading={loading}
-        onDelete={(id) => handleDelete('INSPECTION', id)}
-      />
+
+      {/* Danh sách kiểm tra (Chỉ hiện cho Kỹ thuật xem) */}
+      {canManageTech && (
+        <InspectionList
+            inspections={inspections}
+            isLoading={loading}
+            onDelete={(id) => handleDelete('INSPECTION', id)}
+        />
+      )}
     </div>
   );
 };

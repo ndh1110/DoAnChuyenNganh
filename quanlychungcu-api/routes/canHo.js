@@ -2,26 +2,56 @@
 const express = require('express');
 const router = express.Router();
 const canHoController = require('../controllers/canHoController');
-const multer = require('multer');
-// 1. Import authorize middleware
 const { authorize } = require('../middleware/authMiddleware');
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+// 1. Import Multer và Path
+const multer = require('multer');
+const path = require('path');
 
-// === PHẦN 1: AI CŨNG ĐƯỢC TRUY CẬP (Đã đăng nhập) ===
+// 2. Cấu hình nơi lưu và tên file
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/'); // Lưu vào thư mục 'uploads'
+  },
+  filename: function (req, file, cb) {
+    // Đặt tên file để không bị trùng: timestamp-tengoc.jpg
+    // Ví dụ: 171548999-canho1.jpg
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+// 3. Bộ lọc chỉ cho phép file ảnh
+const fileFilter = (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (extname && mimetype) {
+        return cb(null, true);
+    } else {
+        cb(new Error('Chỉ chấp nhận file hình ảnh!'));
+    }
+};
+
+const upload = multer({ storage: storage, fileFilter: fileFilter });
+const uploadExcel = multer({ storage: multer.memoryStorage() }); // Giữ lại cái cũ cho Excel
+
+// === CÁC ROUTES ===
+
+// GET (Ai cũng xem được)
 router.get('/', canHoController.getAllCanHo);
 router.get('/:id', canHoController.getCanHoById);
 
-// === PHẦN 2: CHỈ QUẢN LÝ MỚI ĐƯỢC THAO TÁC ===
-// Các lệnh dưới đây sẽ yêu cầu quyền 'Quản lý' (hoặc Admin)
-router.use(authorize('Quản lý', 'Admin')); 
+// POST/PUT/DELETE (Chỉ Quản lý)
+router.use(authorize('Quản lý', 'Admin'));
 
-router.post('/', canHoController.createCanHo);
-router.put('/:id', canHoController.updateCanHo);
+// 4. Thêm 'upload.single' vào POST và PUT
+// 'HinhAnh' là tên field mà Frontend phải gửi đúng
+router.post('/', upload.single('HinhAnh'), canHoController.createCanHo);
+router.put('/:id', upload.single('HinhAnh'), canHoController.updateCanHo);
 router.delete('/:id', canHoController.deleteCanHo);
 
-// Route Import Excel cũng cần bảo vệ
-router.post('/import-excel', upload.single('file'), canHoController.importFromExcel);
+router.post('/import-excel', uploadExcel.single('file'), canHoController.importFromExcel);
 
 module.exports = router;

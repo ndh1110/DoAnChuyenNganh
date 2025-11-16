@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { authService } from "./services/authService";
 
 // 2. IMPORT CÁC COMPONENT VÀ TRANG
+import ApartmentShowcasePage from "./pages/ApartmentShowcasePage";
 import ProfilePage from './pages/ProfilePage';
 import HomePage from "./pages/HomePage"; 
 import Navbar from "./components/Navbar";
@@ -77,6 +78,7 @@ function AppContent() {
             <Route path="/requests" element={<RequestsPage />} />
             <Route path="/common-areas" element={<CommonAreasPage />} />
             <Route path="/user-management" element={<UserManagementPage />} />
+            <Route path="/showcase" element={<ApartmentShowcasePage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
 

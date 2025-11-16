@@ -11,6 +11,7 @@ const { pool, poolConnect } = require('./dbConfig');
 const { protect, authorize } = require('./middleware/authMiddleware');
 
 // Import file route
+const path = require('path');
 const billingRoutes = require('./routes/billing')
 const authRoutes = require('./routes/auth');
 const userRoleRoutes = require('./routes/userRole');
@@ -86,10 +87,7 @@ app.use('/api/auth', authRoutes);
 
 // === B. NHÓM QUẢN TRỊ & TÀI CHÍNH (Chỉ Quản lý) ===
 // Những chức năng này Cư dân và Kỹ thuật KHÔNG được phép chạm vào
-app.use('/api/block', protect, blockRoutes);
-app.use('/api/tang', protect, tangRoutes);
-app.use('/api/dichvu', protect, roleQuanLy, dichVuRoutes);
-app.use('/api/banggia', protect, roleQuanLy, bangGiaRoutes);
+app.use('/api/hoadon', protect, roleQuanLy, hoaDonRoutes);
 app.use('/api/chitiethoadon', protect, roleQuanLy, chiTietHoaDonRoutes);
 app.use('/api/chisodichvu', protect, roleQuanLy, chiSoDichVuRoutes);
 app.use('/api/thanhtoan', protect, roleQuanLy, thanhToanRoutes);
@@ -100,11 +98,13 @@ app.use('/api/nhanvien', protect, roleQuanLy, nhanVienRoutes); // Quản lý nh�
 app.use('/api/vaitro', protect, roleQuanLy, vaiTroRoutes);
 app.use('/api/user-roles', protect, roleQuanLy, userRoleRoutes);
 
-// === C. VẬN HÀNH (Quản lý & Kỹ thuật) ===
-app.use('/api/khuvucchung', protect, roleQuanLyKyThuat, khuVucChungRoutes);
+
+// === C. NHÓM KỸ THUẬT & VẬN HÀNH (Quản lý & Kỹ thuật) ===
+// Những chức năng này Cư dân KHÔNG được phép chạm vào
+app.use('/api/khuvucchung', protect, khuVucChungRoutes);
 app.use('/api/lichtruc', protect, roleQuanLyKyThuat, lichTrucRoutes);
 app.use('/api/phancong', protect, roleQuanLyKyThuat, phanCongRoutes);
-app.use('/api/suco', protect, roleQuanLyKyThuat, suCoRoutes);
+
 app.use('/api/kiemtra', protect, roleQuanLyKyThuat, kiemTraKhuVucRoutes);
 
 
@@ -118,8 +118,13 @@ app.use('/api/yeucaulog', protect, yeuCauLogRoutes);
 app.use('/api/lichhen', protect, lichHenRoutes);
 
 // 2. Thông tin chung & Cá nhân
+app.use('/api/block', protect, blockRoutes);
+app.use('/api/tang', protect, tangRoutes);
+app.use('/api/dichvu', protect, dichVuRoutes);
+app.use('/api/banggia', protect, bangGiaRoutes);
 app.use('/api/nguoidung', protect, nguoiDungRoutes);
 app.use('/api/canho', protect, canHoRoutes); // Cư dân cần xem căn hộ mình ở
+app.use('/api/suco', protect, suCoRoutes);
 app.use('/api/hopdong', protect, hopDongRoutes);
 app.use('/api/dieukhoan', protect, dieuKhoanRoutes);
 app.use('/api/lichsucutru', protect, lichSuCuTruRoutes);
@@ -127,12 +132,7 @@ app.use('/api/thongbao', protect, thongBaoRoutes);
 app.use('/api/thongbaonguoidung', protect, thongBaoNguoiDungRoutes);
 app.use('/api/thietbi', protect, thietBiNguoiDungRoutes);
 app.use('/api/trangthai', protect, trangThaiRoutes);
-app.use('/api/hoadon', protect, hoaDonRoutes);
-
-//new
-app.use('/api/vaitro', protect, roleQuanLy, vaiTroRoutes);
-app.use('/api/user-roles', protect, roleQuanLy, userRoleRoutes);
-
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // === Khởi động Server ===
 app.listen(port, () => {

@@ -1,7 +1,6 @@
 // src/components/PriceList.jsx
 import React from 'react';
 
-// Hàm tiện ích nội bộ
 const formatDate = (dateString) => {
     if (!dateString) return 'Vô thời hạn';
     const date = new Date(dateString);
@@ -12,8 +11,8 @@ const formatCurrency = (amount) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
 };
 
-// "Dumb Component" - Chỉ nhận props
-const PriceList = ({ prices, onEdit, onDelete }) => {
+// Nhận thêm prop 'canManage'
+const PriceList = ({ prices, onEdit, onDelete, canManage }) => {
   
   return (
     <div className="price-list mt-8 overflow-x-auto">
@@ -25,7 +24,9 @@ const PriceList = ({ prices, onEdit, onDelete }) => {
             <th className="py-2 px-4 border-b text-left">Đơn Giá (VND)</th>
             <th className="py-2 px-4 border-b text-left">Hiệu lực Từ</th>
             <th className="py-2 px-4 border-b text-left">Hiệu lực Đến</th>
-            <th className="py-2 px-4 border-b text-left">Hành động</th>
+            
+            {/* Chỉ hiện cột Hành Động nếu có quyền Quản lý */}
+            {canManage && <th className="py-2 px-4 border-b text-left">Hành động</th>}
           </tr>
         </thead>
         <tbody>
@@ -39,25 +40,29 @@ const PriceList = ({ prices, onEdit, onDelete }) => {
               </td>
               <td className="py-2 px-4 border-b">{formatDate(price.HieuLucTu)}</td>
               <td className="py-2 px-4 border-b">{formatDate(price.HieuLucDen)}</td>
-              <td className="py-2 px-4 border-b">
-                <button
-                  onClick={() => onEdit(price)}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded mr-2"
-                >
-                  Sửa
-                </button>
-                <button
-                  onClick={() => onDelete(price.MaBangGia)}
-                  className="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded"
-                >
-                  Xóa
-                </button>
-              </td>
+              
+              {/* Chỉ hiện nút Sửa/Xóa nếu có quyền Quản lý */}
+              {canManage && (
+                <td className="py-2 px-4 border-b">
+                  <button
+                    onClick={() => onEdit(price)}
+                    className="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded mr-2"
+                  >
+                    Sửa
+                  </button>
+                  <button
+                    onClick={() => onDelete(price.MaBangGia)}
+                    className="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded"
+                  >
+                    Xóa
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
           {prices.length === 0 && (
             <tr>
-              <td colSpan="5" className="py-4 text-center text-gray-500">
+              <td colSpan={canManage ? "5" : "4"} className="py-4 text-center text-gray-500">
                 💰 Chưa có Bảng giá nào được cấu hình.
               </td>
             </tr>

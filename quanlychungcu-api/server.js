@@ -1,5 +1,4 @@
 // server.js (ĐÃ SỬA LỖI TRÙNG LẶP)
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -16,6 +15,7 @@ const billingRoutes = require('./routes/billing')
 const authRoutes = require('./routes/auth');
 const userRoleRoutes = require('./routes/userRole');
 const vaiTroRoutes = require('./routes/vaiTro');
+const myRoutes = require('./routes/myRoutes.js');
 
 // (Các tuyến đường nghiệp vụ)
 const nguoiDungRoutes = require('./routes/nguoiDung');
@@ -50,6 +50,7 @@ const thongBaoNguoiDungRoutes = require('./routes/thongBaoNguoiDung');
 const thietBiNguoiDungRoutes = require('./routes/thietBiNguoiDung');
 const auditLogRoutes = require('./routes/auditLog');
 const trangThaiRoutes = require('./routes/trangThai');
+
 
 
 const app = express();
@@ -132,6 +133,7 @@ app.use('/api/thongbao', protect, thongBaoRoutes);
 app.use('/api/thongbaonguoidung', protect, thongBaoNguoiDungRoutes);
 app.use('/api/thietbi', protect, thietBiNguoiDungRoutes);
 app.use('/api/trangthai', protect, trangThaiRoutes);
+app.use('/api/my', myRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // === Khởi động Server ===

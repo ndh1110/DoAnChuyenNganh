@@ -89,6 +89,23 @@ const importInvoices = async (file) => {
     throw error;
   }
 };
+
+/**
+ * [MỚI] Lấy hóa đơn CHƯA THANH TOÁN CỦA CƯ DÂN
+ * Dành cho Dashboard Widget.
+ * API: GET /api/my/hoadon?TrangThai=ChuaThanhToan
+ */
+export const getMyUnpaidInvoices = async () => {
+  try {
+    // Dùng API an toàn mới và bộ lọc trạng thái
+    const response = await api.get('/my/hoadon?TrangThai=ChuaThanhToan');
+    return response.data; // Trả về mảng hóa đơn chưa thanh toán
+  } catch (error) {
+    console.error("Lỗi khi lấy hóa đơn của tôi:", error.response || error);
+    throw error;
+  }
+};
+
 export const invoiceService = {
   getAll: getAllInvoices,
   getById: getInvoiceById,
@@ -96,5 +113,6 @@ export const invoiceService = {
   delete: deleteInvoice,
   getPayments: getPaymentsByInvoiceId,
   addDetail: addInvoiceDetail,
-  importInvoices
+  importInvoices,
+  getMyUnpaid: getMyUnpaidInvoices
 };

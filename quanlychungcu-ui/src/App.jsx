@@ -1,5 +1,4 @@
 import React, { useEffect } from "react";
-import "./App.css";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
 // 1. IMPORT AUTHPROVIDER VÀ AUTHSERVICE
@@ -9,12 +8,13 @@ import { authService } from "./services/authService";
 // 2. IMPORT CÁC COMPONENT VÀ TRANG
 import ApartmentShowcasePage from "./pages/ApartmentShowcasePage";
 import ProfilePage from './pages/ProfilePage';
-import HomePage from "./pages/HomePage"; 
+// import HomePage from "./pages/HomePage"; // <-- 1. XÓA FILE CŨ
+import DashboardPage from "./pages/DashboardPage"; // <-- 2. IMPORT FILE MỚI
 import Navbar from "./components/Navbar";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage"; // <-- 1. IMPORT MỚI
-import ResetPasswordPage from "./pages/ResetPasswordPage"; // <-- 2. IMPORT MỚI
+import ForgotPasswordPage from "./pages/ForgotPasswordPage"; 
+import ResetPasswordPage from "./pages/ResetPasswordPage"; 
 import ProtectedRoute from "./components/ProtectedRoute";
 import BlocksPage from "./pages/BlocksPage";
 import ResidentsPage from "./pages/ResidentsPage";
@@ -60,13 +60,15 @@ function AppContent() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           
-          {/* --- 3. THÊM 2 ROUTE MỚI Ở ĐÂY --- */}
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
           
           {/* === Routes Bảo vệ (Protected) === */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<HomePage />} />
+            
+            {/* --- 3. SỬA LỖI Ở ĐÂY --- */}
+            <Route path="/" element={<DashboardPage />} /> {/* <-- ĐÃ SỬA */}
+            
             <Route path="/blocks" element={<BlocksPage />} />
             <Route path="/floors" element={<FloorsPage />} />
             <Route path="/apartments" element={<ApartmentsPage />} />

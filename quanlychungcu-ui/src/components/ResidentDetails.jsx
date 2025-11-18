@@ -36,7 +36,14 @@ const ResidentDetails = ({ resident, onBack }) => {
           <span className="text-sm font-medium text-gray-500">Số Điện Thoại</span>
           <p className="text-lg">{resident.SoDienThoai || 'N/A'}</p>
         </div>
-        {/* Bạn có thể thêm các trường khác từ API /nguoidung/:id vào đây */}
+        
+        {/* --- THÊM MỚI --- */}
+        <div className="border-b pb-2">
+          <span className="text-sm font-medium text-gray-500">CCCD/CMND</span>
+          <p className="text-lg">{resident.CCCD || 'N/A'}</p>
+        </div>
+        {/* --- KẾT THÚC THÊM MỚI --- */}
+
       </div>
 
       {/* (Chúng ta sẽ thêm Lịch sử cư trú /api/lichsucutru vào đây ở bước sau) */}

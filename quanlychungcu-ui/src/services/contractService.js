@@ -1,11 +1,11 @@
+// src/services/contractService.js
 import api from './api';
 
 /**
- * Lớp Service: Chứa tất cả các hàm gọi API liên quan đến "Hợp Đồng" (Contract)
- * Sử dụng API endpoints: /api/hopdong
+ * Lớp Service: Chứa tất cả các hàm gọi API liên quan đến "Hợp Đồng"
  */
 
-// Lấy tất cả Hợp đồng
+// --- CÁC HÀM CƠ BẢN (Giữ nguyên) ---
 const getAllContracts = async () => {
   try {
     const response = await api.get('/hopdong');
@@ -16,7 +16,6 @@ const getAllContracts = async () => {
   }
 };
 
-// Lấy 1 Hợp đồng theo ID
 const getContractById = async (id) => {
   try {
     const response = await api.get(`/hopdong/${id}`);
@@ -27,8 +26,6 @@ const getContractById = async (id) => {
   }
 };
 
-// Tạo Hợp đồng mới
-// contractData là { MaCanHo, ChuHoId, Loai, NgayKy, ... }
 const createContract = async (contractData) => {
   try {
     const response = await api.post('/hopdong', contractData);
@@ -39,7 +36,6 @@ const createContract = async (contractData) => {
   }
 };
 
-// Cập nhật Hợp đồng
 const updateContract = async (id, contractData) => {
   try {
     const response = await api.put(`/hopdong/${id}`, contractData);
@@ -50,7 +46,6 @@ const updateContract = async (id, contractData) => {
   }
 };
 
-// Xóa Hợp đồng
 const deleteContract = async (id) => {
   try {
     const response = await api.delete(`/hopdong/${id}`);
@@ -61,11 +56,50 @@ const deleteContract = async (id) => {
   }
 };
 
-// Export tất cả các hàm
+// --- CÁC HÀM MỚI CHO ĐIỀU KHOẢN (TERMS) ---
+
+// Lấy danh sách điều khoản của 1 hợp đồng
+const getContractTerms = async (contractId) => {
+  try {
+    const response = await api.get(`/dieukhoan/hopdong/${contractId}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Lỗi khi lấy điều khoản hợp đồng ${contractId}:`, error.response || error);
+    throw error;
+  }
+};
+
+// Thêm điều khoản mới
+const addContractTerm = async (termData) => {
+    // termData: { MaHopDong, NoiDung }
+    try {
+        const response = await api.post('/dieukhoan', termData);
+        return response.data;
+    } catch (error) {
+        console.error("Lỗi khi thêm điều khoản:", error.response || error);
+        throw error;
+    }
+}
+
+// Xóa điều khoản
+const deleteContractTerm = async (termId) => {
+    try {
+        const response = await api.delete(`/dieukhoan/${termId}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Lỗi khi xóa điều khoản ${termId}:`, error.response || error);
+        throw error;
+    }
+}
+
 export const contractService = {
   getAll: getAllContracts,
   getById: getContractById,
   create: createContract,
   update: updateContract,
   delete: deleteContract,
+  // Export thêm
+  getTerms: getContractTerms,
+  addTerm: addContractTerm,
+  deleteTerm: deleteContractTerm
 };

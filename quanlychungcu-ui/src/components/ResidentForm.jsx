@@ -1,6 +1,14 @@
 // src/components/ResidentForm.jsx
 import React, { useState, useEffect } from 'react';
 
+// (MỚI) Hàm kiểm tra CCCD 9 số (CMND cũ) hoặc 12 số (CCCD mới)
+const isValidCCCD = (cccd) => {
+  if (!cccd) return false;
+  // Regex cho 9 số hoặc 12 số
+  const cccdRegex = /^(\d{9}|\d{12})$/;
+  return cccdRegex.test(cccd);
+};
+
 // Đây là "Dumb Component" cho Form
 // Nhận 'initialData' (để Sửa) và 2 hàm handler
 const ResidentForm = ({ initialData, onSubmit, onClose }) => {
@@ -10,6 +18,7 @@ const ResidentForm = ({ initialData, onSubmit, onClose }) => {
     HoTen: '',
     Email: '',
     SoDienThoai: '',
+    CCCD: '', // <-- THÊM MỚI
     MatKhauHash: '', // Chỉ yêu cầu khi Tạo mới
   });
   
@@ -22,11 +31,12 @@ const ResidentForm = ({ initialData, onSubmit, onClose }) => {
         HoTen: initialData.HoTen || '',
         Email: initialData.Email || '',
         SoDienThoai: initialData.SoDienThoai || '',
+        CCCD: initialData.CCCD || '', // <-- THÊM MỚI
         MatKhauHash: '', // Không bao giờ hiển thị mật khẩu cũ
       });
     } else {
       // Reset form khi Tạo mới
-      setFormData({ HoTen: '', Email: '', SoDienThoai: '', MatKhauHash: '' });
+      setFormData({ HoTen: '', Email: '', SoDienThoai: '', CCCD: '', MatKhauHash: '' }); // <-- THÊM MỚI
     }
   }, [initialData]);
 
@@ -37,6 +47,14 @@ const ResidentForm = ({ initialData, onSubmit, onClose }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // (MỚI) Validation: Nếu CCCD được nhập, nó phải hợp lệ
+    // (Nếu để trống thì cho qua, coi như là null)
+    if (formData.CCCD && !isValidCCCD(formData.CCCD)) {
+        alert("CCCD không hợp lệ. Phải là 9 hoặc 12 chữ số (hoặc để trống).");
+        return;
+    }
+
     setIsSubmitting(true);
     
     // Tạo object payload
@@ -45,6 +63,11 @@ const ResidentForm = ({ initialData, onSubmit, onClose }) => {
     // Nếu là Sửa và không nhập mật khẩu, thì không gửi trường mật khẩu
     if (initialData && !payload.MatKhauHash) {
       delete payload.MatKhauHash;
+    }
+    
+    // (MỚI) Nếu CCCD là chuỗi rỗng, gửi null lên DB
+    if (payload.CCCD === '') {
+        payload.CCCD = null;
     }
     
     // Gọi hàm onSubmit từ 'pages' (handleFormSubmit)
@@ -96,6 +119,21 @@ const ResidentForm = ({ initialData, onSubmit, onClose }) => {
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
             />
           </div>
+          
+          {/* --- THÊM MỚI: Ô NHẬP CCCD --- */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700">CCCD/CMND</label>
+            <input
+              type="text"
+              name="CCCD"
+              value={formData.CCCD}
+              onChange={handleChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              placeholder="9 hoặc 12 số (nếu có)"
+            />
+          </div>
+          {/* --- KẾT THÚC THÊM MỚI --- */}
+
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">
               Mật khẩu {isEditMode ? '(Để trống nếu không đổi)' : ''}

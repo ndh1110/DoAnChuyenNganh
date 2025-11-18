@@ -4,48 +4,71 @@ import api from './api'; // Import instance axios đã cấu hình
 const API_ENDPOINT = '/nguoidung';
 
 /**
- * Lấy toàn bộ danh sách cư dân
+ * Lấy toàn bộ danh sách cư dân (Đã sửa)
  */
-const getAllResidents = () => {
-  return api.get(API_ENDPOINT);
+const getAllResidents = async () => {
+  try {
+    const response = await api.get(API_ENDPOINT);
+    return response.data; // <--- SỬA: Trả về data
+  } catch (error) {
+    console.error("Lỗi khi lấy danh sách Cư dân:", error.response || error);
+    throw error;
+  }
 };
 
 /**
- * Lấy chi tiết một cư dân
- * @param {string} id - Mã người dùng (MaNguoiDung)
+ * Lấy chi tiết một cư dân (Đã sửa)
  */
-const getResidentById = (id) => {
-  return api.get(`${API_ENDPOINT}/${id}`);
+const getResidentById = async (id) => {
+  try {
+    const response = await api.get(`${API_ENDPOINT}/${id}`);
+    return response.data; // <--- SỬA: Trả về data
+  } catch (error) {
+    console.error(`Lỗi khi lấy Cư dân ${id}:`, error.response || error);
+    throw error;
+  }
 };
 
 /**
- * Tạo một cư dân mới
- * @param {object} residentData - Dữ liệu cư dân (ví dụ: { HoTen, Email, SoDienThoai, ... })
+ * Tạo một cư dân mới (Đã sửa)
  */
-const createResident = (residentData) => {
-  return api.post(API_ENDPOINT, residentData);
+const createResident = async (residentData) => {
+  try {
+    const response = await api.post(API_ENDPOINT, residentData);
+    return response.data; // <--- SỬA: Trả về data
+  } catch (error) {
+    console.error("Lỗi khi tạo Cư dân:", error.response || error);
+    throw error;
+  }
 };
 
 /**
- * Cập nhật thông tin cư dân
- * @param {string} id - Mã người dùng
- * @param {object} residentData - Dữ liệu cập nhật
+ * Cập nhật thông tin cư dân (Đã sửa)
  */
-const updateResident = (id, residentData) => {
-  return api.put(`${API_ENDPOINT}/${id}`, residentData);
+const updateResident = async (id, residentData) => {
+  try {
+    const response = await api.put(`${API_ENDPOINT}/${id}`, residentData);
+    return response.data; // <--- SỬA: Trả về data
+  } catch (error) {
+    console.error(`Lỗi khi cập nhật Cư dân ${id}:`, error.response || error);
+    throw error;
+  }
 };
 
 /**
- * Xóa một cư dân
- * @param {string} id - Mã người dùng
+ * Xóa một cư dân (Đã sửa)
  */
-const deleteResident = (id) => {
-  return api.delete(`${API_ENDPOINT}/${id}`);
+const deleteResident = async (id) => {
+  try {
+    const response = await api.delete(`${API_ENDPOINT}/${id}`);
+    return response.data; // <--- SỬA: Trả về data
+  } catch (error) {
+    console.error(`Lỗi khi xóa Cư dân ${id}:`, error.response || error);
+    throw error;
+  }
 };
 
-// =============================================
-// ⭐ PHẦN SỬA: Gom tất cả vào 1 object để export
-// =============================================
+// Export object (Phần này của bạn đã đúng)
 export const residentService = {
   getAll: getAllResidents,
   getById: getResidentById,

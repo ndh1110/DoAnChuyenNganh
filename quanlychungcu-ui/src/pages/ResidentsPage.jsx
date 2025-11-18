@@ -5,21 +5,19 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {residentService} from '../services/residentService';
 import ResidentList from '../components/ResidentList.jsx';
 import ResidentForm from '../components/ResidentForm.jsx'; 
-// --- THAY ĐỔI 1: Import component chi tiết ---
 import ResidentDetails from '../components/ResidentDetails.jsx';
 
 const ResidentsPage = () => {
   // 2. Quản lý toàn bộ State
-  const [residents, setResidents] = useState([]);
+  const [residents, setResidents] = useState([]); // <-- Tốt! Khởi tạo mảng rỗng
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [currentResident, setCurrentResident] = useState(null);
 
-  // --- THAY ĐỔI 2: Thêm state cho chế độ xem chi tiết ---
-  const [viewMode, setViewMode] = useState('list'); // 'list' hoặc 'details'
-  const [detailData, setDetailData] = useState(null); // Lưu data chi tiết
+  const [viewMode, setViewMode] = useState('list'); 
+  const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   
   // 3. Logic Fetch Data (Danh sách)
@@ -27,24 +25,28 @@ const ResidentsPage = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await residentService.getAll();
-      setResidents(response.data);
+      
+      // --- SỬA LỖI 1 ---
+      // residentService.getAll() giờ đã trả về mảng data
+      const data = await residentService.getAll();
+      setResidents(data); // Bỏ .data
+      // -------------------
+
     } catch (err) {
       console.error("Lỗi khi tải danh sách Cư dân:", err);
       setError(err.message);
     } finally {
-      setLoading(false);
+      setLoading(false); // Luôn tắt loading
     }
   }, []);
 
   useEffect(() => {
-    // Chỉ fetch danh sách khi ở chế độ 'list'
     if (viewMode === 'list') {
       fetchResidents();
     }
   }, [fetchResidents, viewMode]);
 
-  // 4. Logic CRUD Handlers (Delete, Edit, Create, Submit, Close Form)
+  // 4. Logic CRUD Handlers (Các hàm này đã đúng, không cần sửa)
   const handleDelete = async (id) => {
     if (window.confirm(`Bạn có chắc muốn xóa cư dân (ID: ${id})?`)) {
       try {
@@ -75,7 +77,7 @@ const ResidentsPage = () => {
         await residentService.create(formData);
       }
       setIsFormOpen(false);
-      fetchResidents();
+      fetchResidents(); // Tải lại danh sách
     } catch (err) {
        console.error("Lỗi khi lưu cư dân:", err);
        setError(err.message);
@@ -86,15 +88,18 @@ const ResidentsPage = () => {
     setIsFormOpen(false);
   };
 
-  // --- THAY ĐỔI 3: Thêm handler cho View Details ---
+  // 5. Handler cho View Details
   const handleViewDetails = async (id) => {
     setViewMode('details');
     setDetailLoading(true);
-    setError(null); // Xóa lỗi cũ (nếu có)
+    setError(null); 
     try {
-      // Gọi API lấy chi tiết
-      const response = await residentService.getById(id);
-      setDetailData(response.data);
+      // --- SỬA LỖI 2 ---
+      // residentService.getById() giờ đã trả về object data
+      const data = await residentService.getById(id);
+      setDetailData(data); // Bỏ .data
+      // -------------------
+
     } catch (err) {
       console.error("Lỗi khi tải chi tiết cư dân:", err);
       setError(err.message);
@@ -105,14 +110,13 @@ const ResidentsPage = () => {
 
   const handleBackToList = () => {
     setViewMode('list');
-    setDetailData(null); // Xóa data chi tiết
+    setDetailData(null); 
   };
 
-  // 5. Render UI
+  // 6. Render UI (Giữ nguyên)
   return (
     <div className="residents-page container mx-auto p-6">
       
-      {/* Form (Modal) cho Create/Update */}
       {isFormOpen && (
         <ResidentForm 
           initialData={currentResident} 
@@ -121,13 +125,10 @@ const ResidentsPage = () => {
         />
       )}
 
-      {/* Tiêu đề trang */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-semibold text-gray-800">
-          {/* --- THAY ĐỔI 4: Tiêu đề động --- */}
           {viewMode === 'list' ? '👥 Quản lý Cư dân' : 'Chi tiết Cư dân'}
         </h1>
-        {/* Chỉ hiển thị nút "Thêm" ở màn hình danh sách */}
         {viewMode === 'list' && (
           <button
             onClick={handleCreateNew}
@@ -139,12 +140,10 @@ const ResidentsPage = () => {
       </div>
       <hr className="mb-6" />
       
-      {/* Hiển thị lỗi chung */}
       {error && <div className="p-6 text-red-600 text-center font-semibold">
           ❌ Lỗi API: {error}.
         </div>}
 
-      {/* --- THAY ĐỔI 5: Logic render động (List hoặc Details) --- */}
       {viewMode === 'list' ? (
         <>
           {/* Chế độ xem Danh sách */}
@@ -152,7 +151,7 @@ const ResidentsPage = () => {
           {!loading && !error && (
             <ResidentList
               residents={residents}
-              onViewDetails={handleViewDetails} // Truyền handler mới
+              onViewDetails={handleViewDetails}
               onEdit={handleEdit}
               onDelete={handleDelete}
             />

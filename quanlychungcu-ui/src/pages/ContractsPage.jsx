@@ -1,24 +1,19 @@
+// src/pages/ContractsPage.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
-// 1. Import tất cả các Service cần thiết
 import { contractService } from '../services/contractService';
-import { residentService } from '../services/residentService';
+import { residentService } from '../services/residentService'; 
 import { apartmentService } from '../services/apartmentService';
 import { floorService } from '../services/floorService';
 import { blockService } from '../services/blockService';
 
-// 2. Import các Component "Ngốc"
 import ContractList from '../components/ContractList';
 import ContractForm from '../components/ContractForm';
+import ContractDetails from '../components/ContractDetails'; 
 
-/**
- * Component "Thông Minh" (Smart Component)
- * - Quản lý state và logic cho CRUD Hợp Đồng.
- */
 function ContractsPage() {
-  // === 3. Quản lý State ===
   const [allContracts, setAllContracts] = useState([]);
-  const [allResidents, setAllResidents] = useState([]);
+  const [allResidents, setAllResidents] = useState([]); 
   const [allApartments, setAllApartments] = useState([]);
   const [allFloors, setAllFloors] = useState([]);
   const [allBlocks, setAllBlocks] = useState([]);
@@ -26,20 +21,17 @@ function ContractsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // State cho Modal Form
+  // State UI
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [currentContract, setCurrentContract] = useState(null);
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'details'
+  const [detailContract, setDetailContract] = useState(null);
   
-  // === 4. Logic (useEffect) ===
-  
-  // Tải TẤT CẢ dữ liệu cần thiết
   const loadInitialData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // Chạy song song 5 yêu cầu API
       const [contractsData, residentsData, apartmentsData, floorsData, blocksData] = await Promise.all([
         contractService.getAll(),
         residentService.getAll(),
@@ -47,13 +39,11 @@ function ContractsPage() {
         floorService.getAll(),
         blockService.getAll()
       ]);
-      
       setAllContracts(contractsData);
-      setAllResidents(residentsData.data);
+      setAllResidents(residentsData); 
       setAllApartments(apartmentsData);
       setAllFloors(floorsData);
       setAllBlocks(blocksData);
-      
     } catch (err) {
       setError(err.message || "Lỗi khi tải dữ liệu ban đầu.");
     } finally {
@@ -63,53 +53,27 @@ function ContractsPage() {
 
   useEffect(() => {
     loadInitialData();
-  }, [loadInitialData]); // Chạy 1 lần
+  }, [loadInitialData]);
 
-  // === 5. Logic "Làm giàu" Dữ liệu (useMemo) ===
-
-  // "Làm giàu" Căn Hộ (để truyền xuống Form)
   const hydratedApartments = useMemo(() => {
     const floorMap = new Map(allFloors.map(f => [f.MaTang, f]));
     const blockMap = new Map(allBlocks.map(b => [b.MaBlock, b]));
-    
     return allApartments.map(apt => {
         const floor = floorMap.get(apt.MaTang);
         const block = floor ? blockMap.get(floor.MaBlock) : null;
-        return {
-          ...apt,
-          SoTang: floor ? floor.SoTang : null,
-          TenBlock: block ? block.TenBlock : null,
-        };
+        return { ...apt, SoTang: floor ? floor.SoTang : null, TenBlock: block ? block.TenBlock : null };
       });
   }, [allApartments, allFloors, allBlocks]);
 
-  // "Làm giàu" Hợp Đồng (để truyền xuống List)
   const hydratedContracts = useMemo(() => {
-    // Tạo Maps để tra cứu nhanh
-    const residentMap = new Map(allResidents.map(r => [r.MaNguoiDung, r.HoTen]));
-    // Dùng hydratedApartments để tra cứu SoCanHo
-    const apartmentMap = new Map(hydratedApartments.map(a => [a.MaCanHo, a.SoCanHo])); 
-
-    return allContracts.map(con => {
-      return {
-        ...con,
-        HoTen: residentMap.get(con.MaNguoiDung) || 'N/A',
-        SoCanHo: apartmentMap.get(con.MaCanHo) || 'N/A',
-      };
-    });
-  }, [allContracts, allResidents, hydratedApartments]);
-
-  // === 6. Các Hàm Xử Lý Sự Kiện (Event Handlers) ===
-
-  const handleAddNew = () => {
-    setCurrentContract(null);
-    setIsModalOpen(true);
-  };
-
-  const handleEdit = (contract) => {
-    setCurrentContract(contract);
-    setIsModalOpen(true);
-  };
+    // Backend đã join sẵn TenBenA, TenBenB, nên không cần map lại nhiều
+    return allContracts; 
+  }, [allContracts]);
+  
+  const handleAddNew = () => { setCurrentContract(null); setIsModalOpen(true); };
+  const handleEdit = (contract) => { setCurrentContract(contract); setIsModalOpen(true); };
+  const handleViewDetails = (contract) => { setDetailContract(contract); setViewMode('details'); };
+  const handleBackToList = () => { setViewMode('list'); setDetailContract(null); };
 
   const handleDelete = async (id) => {
     if (window.confirm(`Bạn có chắc muốn xóa Hợp đồng (ID: ${id})?`)) {
@@ -117,7 +81,7 @@ function ContractsPage() {
         setLoading(true);
         await contractService.delete(id);
         alert("Xóa Hợp đồng thành công!");
-        loadInitialData(); // Tải lại toàn bộ
+        loadInitialData();
       } catch (err) {
         setError(err.message || "Lỗi khi xóa Hợp đồng.");
         alert(`Lỗi khi xóa: ${error}`);
@@ -127,31 +91,46 @@ function ContractsPage() {
     }
   };
 
-  const handleFormSubmit = async (formData) => {
+  const handleFormSubmit = async (formData, needsCCCDUpdate) => {
     try {
       setFormLoading(true);
       setError(null);
 
-      // Đảm bảo ID là số
+      // 1. Update CCCD (nếu người dùng nhập mới)
+      // formData.BenB_Id là người mua/thuê (chính là ChuHoId cũ)
+      if (needsCCCDUpdate) {
+         try {
+             await residentService.update(formData.BenB_Id, { CCCD: formData.CCCD });
+         } catch (err) {
+             throw new Error("Lỗi cập nhật CCCD: " + err.message);
+         }
+      }
+      
+      // 2. Gửi dữ liệu
       const dataToSubmit = {
-        ...formData,
+        SoHopDong: formData.SoHopDong,
         MaCanHo: parseInt(formData.MaCanHo),
-        MaNguoiDung: parseInt(formData.MaNguoiDung),
+        BenB_Id: parseInt(formData.BenB_Id), 
+        BenA_Id: formData.BenA_Id ? parseInt(formData.BenA_Id) : null,
+        Loai: formData.Loai,
+        GiaTriHopDong: formData.GiaTriHopDong,
+        SoTienCoc: formData.SoTienCoc,
+        NgayKy: formData.NgayKy,
+        NgayHetHan: formData.NgayHetHan,
+        DieuKhoans: formData.DieuKhoans 
       };
 
       if (currentContract) {
-        // --- Cập nhật (Update) ---
         await contractService.update(currentContract.MaHopDong, dataToSubmit);
-        alert("Cập nhật Hợp đồng thành công!");
+        alert("Đã cập nhật thông tin Hợp đồng!");
       } else {
-        // --- Tạo mới (Create) ---
-        await contractService.create(dataToSubmit);
-        alert("Tạo mới Hợp đồng thành công!");
+        await contractService.create(dataToSubmit); 
+        alert("Tạo Hợp đồng và các Điều khoản thành công!");
       }
 
       setIsModalOpen(false);
       setCurrentContract(null);
-      loadInitialData(); // Tải lại toàn bộ
+      loadInitialData();
     } catch (err) {
       const errorMsg = err.response?.data?.message || err.message || "Lỗi khi lưu Hợp đồng.";
       setError(errorMsg);
@@ -161,35 +140,41 @@ function ContractsPage() {
     }
   };
 
-  // === 7. Render Giao Diện ===
   return (
     <div className="page-container">
-      <div className="page-header">
-        <h2>Quản lý Hợp đồng</h2>
-        <button onClick={handleAddNew} className="btn-add-new">
-          + Thêm Hợp đồng Mới
-        </button>
-      </div>
-
-      {error && <div className="error-message">Lỗi: {error}</div>}
-
-      <ContractList
-        contracts={hydratedContracts}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        isLoading={loading}
-      />
-      
       <ContractForm
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleFormSubmit}
         isLoading={formLoading}
         initialData={currentContract}
-        // Truyền dữ liệu cho các dropdowns
-        allResidents={allResidents}
+        allResidents={allResidents} 
         hydratedApartments={hydratedApartments}
       />
+
+      {viewMode === 'list' ? (
+          <>
+            <div className="page-header flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">Quản lý Hợp đồng</h2>
+                <button onClick={handleAddNew} className="btn-add-new bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 shadow">
+                + Thêm Hợp đồng Mới
+                </button>
+            </div>
+            {error && <div className="error-message text-red-600 mb-4">Lỗi: {error}</div>}
+            <ContractList
+                contracts={hydratedContracts}
+                onViewDetails={handleViewDetails} 
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                isLoading={loading}
+            />
+          </>
+      ) : (
+          <ContractDetails 
+              contract={detailContract} 
+              onBack={handleBackToList} 
+          />
+      )}
     </div>
   );
 }

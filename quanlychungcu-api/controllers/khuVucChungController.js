@@ -14,7 +14,8 @@ const getAllKhuVucChung = async (req, res) => {
                     b.MaBlock, b.TenBlock
                 FROM dbo.KhuVucChung kvc
                 JOIN dbo.Block b ON kvc.MaBlock = b.MaBlock
-                ORDER BY b.TenBlock, kvc.Tang, kvc.Ten
+                -- Frontend sẽ tự lọc Loai='Tiện ích' hoặc chúng ta có thể lọc luôn ở đây nếu muốn
+                ORDER BY kvc.Loai, kvc.Ten
             `);
         res.json(result.recordset);
     } catch (err) {

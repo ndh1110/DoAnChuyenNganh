@@ -8,7 +8,6 @@ import { authService } from "./services/authService";
 // 2. IMPORT CÁC COMPONENT VÀ TRANG
 import ApartmentShowcasePage from "./pages/ApartmentShowcasePage";
 import ProfilePage from './pages/ProfilePage';
-// import HomePage from "./pages/HomePage"; // <-- 1. XÓA FILE CŨ
 import DashboardPage from "./pages/DashboardPage"; // <-- 2. IMPORT FILE MỚI
 import Navbar from "./components/Navbar";
 import LoginPage from "./pages/LoginPage";
@@ -49,9 +48,6 @@ function AppContent() {
   const { isLoggedIn } = useAuth();
   return (
     <div className="App">
-      <header className="App-header">
-        <h1>Hệ Thống Quản lý Chung cư và Dịch vụ Cư dân</h1>
-      </header>
       <Navbar /> 
       <main>
         <AuthGuardEventBridge />
@@ -87,9 +83,6 @@ function AppContent() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
-      <footer>
-        <p>Đồ án tốt nghiệp - 2025</p>
-      </footer>
     </div>
   );
 }

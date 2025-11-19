@@ -71,13 +71,39 @@ const resetPassword = async (token, passwordData) => {
   return response.data;
 };
 
+// --- THÊM HÀM MỚI NÀY ---
+const socialLogin = async (provider, token) => {
+  try {
+    // Gọi API: POST /api/auth/social-login
+    const response = await api.post('/auth/social-login', { 
+      provider, // 'google' hoặc 'facebook'
+      token     // access_token từ google
+    });
+    
+    // Lưu token giống hệt như login thường
+    if (response.data.token) {
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+      localStorage.setItem('token', response.data.token);
+    }
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
 // Cập nhật export
 export const authService = {
   login,
   register,
-  logout,
   getCurrentToken,
   getCurrentUser, // <-- Thêm hàm mới
   forgotPassword,
-  resetPassword
+  resetPassword,
+  socialLogin, // <-- Thêm hàm mới
+  logout: () => {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+    },
+    getCurrentUser: () => JSON.parse(localStorage.getItem('user')),
+    getCurrentToken: () => localStorage.getItem('token'),
 };

@@ -53,6 +53,21 @@ export const AuthProvider = ({ children }) => {
     setIsLoggedIn(false);
   };
 
+  const loginWithGoogle = async (accessToken) => {
+    try {
+      // Gọi service
+      const data = await authService.socialLogin('google', accessToken);
+      
+      // Cập nhật state toàn cục
+      setUser(data.user);
+      setIsLoggedIn(true);
+      
+      return data;
+    } catch (error) {
+      throw error;
+    }
+  };
+
   // 6. Cung cấp state và hàm cho các component con
   const value = {
     user, // <-- QUAN TRỌNG: chứa role
@@ -60,6 +75,7 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     logout,
+    loginWithGoogle
   };
 
   // Chỉ render app khi đã kiểm tra auth xong
@@ -68,6 +84,7 @@ export const AuthProvider = ({ children }) => {
       {!loading && children}
     </AuthContext.Provider>
   );
+  
 };
 
 // 7. Tạo Hook (để component con dễ dàng sử dụng)

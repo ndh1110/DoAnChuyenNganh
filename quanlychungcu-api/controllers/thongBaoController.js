@@ -10,7 +10,7 @@ const getAllThongBao = async (req, res) => {
         const result = await req.pool.request()
             .query(`
                 SELECT 
-                    tb.MaThongBao, tb.NoiDung, tb.NgayGui,
+                    tb.MaThongBao, tb.NoiDung, tb.NgayGui, tb.MaTemplate, -- 👈 Quan trọng: Lấy MaTemplate
                     nd.MaNguoiDung AS MaNguoiGui, nd.HoTen AS TenNguoiGui
                 FROM dbo.ThongBao tb
                 JOIN dbo.NguoiDung nd ON tb.MaNguoiDung = nd.MaNguoiDung
@@ -24,31 +24,27 @@ const getAllThongBao = async (req, res) => {
 };
 
 /**
- * POST /api/thongbao - Tạo một thông báo mới
- * (Việc gửi đến người dùng sẽ do API ThongBaoNguoiDung xử lý)
- * Cần: MaNguoiDung (người gửi), NoiDung
+ * POST /api/thongbao - Tạo thông báo (Hỗ trợ loại tin tức)
  */
 const createThongBao = async (req, res) => {
     try {
-        const { MaNguoiDung, NoiDung } = req.body; 
+        // Cho phép gửi MaTemplate (ví dụ: 'NEWS') từ body
+        const { MaNguoiDung, NoiDung, MaTemplate } = req.body; 
 
         if (!MaNguoiDung || !NoiDung) {
-            return res.status(400).send('Thiếu MaNguoiDung (người gửi) hoặc NoiDung');
+            return res.status(400).send('Thiếu MaNguoiDung hoặc NoiDung');
         }
 
         const result = await req.pool.request()
             .input('MaNguoiDung', mssql.Int, MaNguoiDung)
             .input('NoiDung', mssql.NVarChar, NoiDung)
-            // NgayGui có DEFAULT GETDATE()
-            .query(`INSERT INTO dbo.ThongBao (MaNguoiDung, NoiDung) 
-                    OUTPUT Inserted.* VALUES (@MaNguoiDung, @NoiDung)`);
+            .input('MaTemplate', mssql.NVarChar, MaTemplate || null) // 👈 Thêm
+            .query(`INSERT INTO dbo.ThongBao (MaNguoiDung, NoiDung, MaTemplate) 
+                    OUTPUT Inserted.* VALUES (@MaNguoiDung, @NoiDung, @MaTemplate)`);
         
         res.status(201).json(result.recordset[0]);
     } catch (err) {
         console.error('Lỗi POST ThongBao:', err);
-        if (err.number === 547) {
-            return res.status(400).send('Lỗi Khóa Ngoại: MaNguoiDung không tồn tại.');
-        }
         res.status(500).send(err.message);
     }
 };

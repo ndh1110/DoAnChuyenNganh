@@ -2,6 +2,7 @@
 const mssql = require('mssql');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
 
 //IMPORT DỊCH VỤ EMAIL MỚI
 const { sendPasswordResetEmail } = require('../services/emailService');
@@ -251,9 +252,179 @@ const resetPassword = async (req, res) => {
     }
 };
 
+const verifyGoogleToken = async (token) => {
+    try {
+        // Gọi Google API để lấy thông tin user
+        const res = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        return {
+            email: res.data.email,
+            name: res.data.name,
+            // Google có trả về picture, nhưng DB ta chưa có cột Avatar nên tạm bỏ qua
+        };
+    } catch (error) {
+        console.error("Lỗi verify Google:", error.response?.data || error.message);
+        return null;
+    }
+};
+
+// --- HÀM HỖ TRỢ: Lấy thông tin từ Facebook ---
+const verifyFacebookToken = async (token) => {
+    try {
+        // Gọi Facebook Graph API để lấy id, name, email, picture
+        const res = await axios.get(`https://graph.facebook.com/me`, {
+            params: {
+                fields: 'id,name,email,picture',
+                access_token: token
+            }
+        });
+        
+        const { id, name, email, picture } = res.data;
+        
+        return {
+            id: id, // Facebook ID
+            name: name,
+            email: email,
+            picture: picture?.data?.url
+        };
+    } catch (error) {
+        console.error("Lỗi verify Facebook:", error.response?.data || error.message);
+        return null;
+    }
+};
+
+/**
+ * POST /api/auth/social-login
+ * Body: { provider: 'google' | 'facebook', token: '...' }
+ */
+const socialLogin = async (req, res) => {
+    try {
+        const { provider, token } = req.body;
+
+        if (!provider || !token) {
+            return res.status(400).send('Thiếu provider hoặc token');
+        }
+
+        // 1. Xác thực token với bên thứ 3
+        let profile = null;
+        if (provider === 'google') {
+            profile = await verifyGoogleToken(token);
+        } else if (provider === 'facebook') {
+            profile = await verifyFacebookToken(token);
+        } else {
+            return res.status(400).send('Provider không hỗ trợ');
+        }
+
+        if (!profile) {
+            return res.status(401).send('Token không hợp lệ');
+        }
+
+        // Xử lý trường hợp Facebook không trả về email
+        let userEmail = profile.email;
+        if (!userEmail && provider === 'facebook') {
+            // Tạo email giả lập nếu không có email (ví dụ: user đăng ký FB bằng SĐT)
+            userEmail = `${profile.id}@facebook.com`;
+        }
+
+        if (!userEmail) {
+             return res.status(400).send('Không thể lấy được thông tin Email từ nhà cung cấp.');
+        }
+
+        const pool = req.pool;
+
+        // 2. Kiểm tra xem Email đã tồn tại chưa
+        const userResult = await pool.request()
+            .input('Email', mssql.NVarChar, userEmail)
+            .query('SELECT * FROM dbo.NguoiDung WHERE Email = @Email');
+
+        let user = null;
+
+        if (userResult.recordset.length > 0) {
+            // --- TRƯỜNG HỢP A: ĐÃ CÓ TÀI KHOẢN ---
+            user = userResult.recordset[0];
+        } else {
+            // --- TRƯỜNG HỢP B: CHƯA CÓ -> TẠO MỚI (Tự động Role 'Khách') ---
+            const transaction = new mssql.Transaction(pool);
+            await transaction.begin();
+
+            try {
+                // Tạo User (Không cần mật khẩu)
+                const requestUser = transaction.request();
+                const insertResult = await requestUser
+                    .input('HoTen', mssql.NVarChar, profile.name)
+                    .input('Email', mssql.NVarChar, userEmail)
+                    // SoDienThoai, MatKhauHash, CCCD để NULL
+                    .query(`INSERT INTO dbo.NguoiDung (HoTen, Email) 
+                            OUTPUT Inserted.MaNguoiDung, Inserted.HoTen, Inserted.Email 
+                            VALUES (@HoTen, @Email)`);
+                
+                user = insertResult.recordset[0];
+
+                // Gán Role 'Khách' (ID = 4)
+                const requestRole = transaction.request();
+                await requestRole
+                    .input('MaNguoiDung', mssql.Int, user.MaNguoiDung)
+                    .input('MaVaiTro', mssql.Int, 4) // 4 là Khách/Resident
+                    .query(`INSERT INTO dbo.NguoiDung_VaiTro (MaNguoiDung, MaVaiTro) 
+                            VALUES (@MaNguoiDung, @MaVaiTro)`);
+
+                await transaction.commit();
+            } catch (err) {
+                await transaction.rollback();
+                throw err; 
+            }
+        }
+
+        // 3. Lấy Role để tạo JWT
+        const roleResult = await pool.request()
+            .input('MaNguoiDung', mssql.Int, user.MaNguoiDung)
+            .query(`
+                SELECT vt.TenVaiTro 
+                FROM dbo.NguoiDung_VaiTro ndvt
+                JOIN dbo.VaiTro vt ON ndvt.MaVaiTro = vt.MaVaiTro
+                WHERE ndvt.MaNguoiDung = @MaNguoiDung
+            `);
+        
+        const roles = roleResult.recordset.map(r => r.TenVaiTro);
+        
+        let primaryRole = roles.length > 0 ? roles[0] : "Khách";
+        if (roles.includes('Quản lý')) primaryRole = 'Quản lý';
+        else if (roles.includes('Kỹ thuật')) primaryRole = 'Kỹ thuật';
+        else if (roles.includes('Resident')) primaryRole = 'Resident';
+
+        // 4. Tạo JWT
+        const tokenPayload = {
+            id: user.MaNguoiDung,
+            email: user.Email,
+            name: user.HoTen,
+            role: primaryRole,
+            roles: roles
+        };
+
+        const jwtToken = jwt.sign(
+            tokenPayload, 
+            process.env.JWT_SECRET, 
+            { expiresIn: '1d' }
+        );
+
+        res.json({
+            message: "Đăng nhập Social thành công",
+            token: jwtToken,
+            user: tokenPayload
+        });
+
+    } catch (err) {
+        console.error('Lỗi Social Login:', err);
+        res.status(500).send(err.message);
+    }
+};
+
+
 module.exports = {
     registerUser,
     loginUser,
     forgotPassword,
-    resetPassword
+    resetPassword,
+    socialLogin
 };

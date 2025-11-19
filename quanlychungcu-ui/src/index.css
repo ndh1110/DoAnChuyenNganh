@@ -1,3 +1,32 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* 1. Import Font chữ Inter (Cho đẹp) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* 2. Cấu hình Tailwind v4 (CHỈ 1 DÒNG DUY NHẤT NÀY) */
+@import "tailwindcss"; 
+
+/* 3. Áp dụng Font và Màu nền (Dùng @layer base để không bị ghi đè) */
+@layer base {
+  html {
+    font-family: 'Inter', sans-serif; /* Set font cho toàn bộ web */
+  }
+
+  body {
+    background-color: #f8fafc; /* bg-slate-50 - Màu nền xám xanh nhẹ */
+    color: #1e293b; /* text-slate-800 - Chữ xám đậm */
+  }
+  
+  /* Làm đẹp thanh cuộn (Scrollbar) */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+}

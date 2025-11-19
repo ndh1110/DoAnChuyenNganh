@@ -18,4 +18,7 @@ router.post('/forgot-password', controller.forgotPassword);
 // POST /api/auth/reset-password/:token
 router.post('/reset-password/:token', controller.resetPassword);
 
+// POST /api/auth/social-login
+router.post('/social-login', controller.socialLogin);
+
 module.exports = router;

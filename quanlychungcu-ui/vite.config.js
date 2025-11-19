@@ -1,19 +1,29 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/postcss'
+import basicSsl from '@vitejs/plugin-basic-ssl' // <-- 1. IMPORT MỚI
 
-// https://vitejs/dev/config/
+// https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    basicSsl() // <-- 2. THÊM PLUGIN NÀY
+  ],
+  css: {
+    postcss: {
+      plugins: [
+        tailwindcss(),
+      ],
+    },
+  },
   server: {
-    port: 5173, // Giữ cổng 5173
-    // Cấu hình PROXY để chuyển tiếp yêu cầu API
+    port: 5173, 
+    https: true, // <-- 3. QUAN TRỌNG: BẬT HTTPS
     proxy: {
-      // Bất kỳ yêu cầu nào bắt đầu bằng '/api'
-      // sẽ được chuyển tiếp đến server Backend
       '/api': {
-        target: 'http://localhost:5000', // Địa chỉ Backend của bạn
-        changeOrigin: true, // Bắt buộc để máy chủ ảo tin tưởng
-        secure: false,      // Tắt kiểm tra SSL
+        target: 'http://localhost:5000', 
+        changeOrigin: true, 
+        secure: false,      
       }
     }
   }

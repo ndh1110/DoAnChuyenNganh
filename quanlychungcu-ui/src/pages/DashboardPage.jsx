@@ -11,20 +11,30 @@ import { commonAreaService } from '../services/commonAreaService'; // <-- Import
 // Components
 import AmenitiesSection from '../components/AmenitiesSection';
 import NewsSection from '../components/NewsSection';
+import LocationSection from '../components/LocationSection';
+import ProgressSection from '../components/ProgressSection';
+import PolicySection from '../components/PolicySection'; // <-- IMPORT MỚI
 
 // Banner Hardcode
 const DashboardBanner = () => (
   <div 
-    className="h-48 md:h-64 bg-cover bg-center rounded-lg shadow-md mb-8 flex items-center justify-center p-4 relative overflow-hidden"
+    className="h-64 md:h-80 bg-cover bg-center rounded-xl shadow-lg mb-10 flex items-center justify-center p-6 relative overflow-hidden"
     style={{ 
-      backgroundColor: '#1e293b', 
-      backgroundImage: `url('/images/dashboard-banner.jpg')`, 
+      // Ảnh tòa nhà chọc trời chất lượng cao từ Unsplash
+      backgroundImage: `url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1600&q=80')`, 
+      backgroundPosition: 'center 40%'
     }}
   >
-    <div className="absolute inset-0 bg-black/30"></div>
-    <h1 className="text-white text-3xl md:text-5xl font-bold text-center relative z-10 drop-shadow-lg">
-      Chào mừng đến Bảng điều khiển
-    </h1>
+    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30"></div>
+    <div className="relative z-10 text-center">
+      <span className="inline-block py-1 px-3 rounded-full bg-blue-600/90 text-white text-xs font-bold tracking-wider mb-3 backdrop-blur-sm">
+        PREMIUM RESIDENCE
+      </span>
+      <h1 className="text-white text-4xl md:text-6xl font-bold drop-shadow-xl tracking-tight">
+        Grand Horizon
+      </h1>
+      <p className="text-slate-200 mt-2 text-lg font-light">Nơi đẳng cấp thượng lưu hội tụ</p>
+    </div>
   </div>
 );
 
@@ -166,20 +176,78 @@ const DashboardPage = () => {
       {/* Dữ liệu được truyền xuống từ State đã fetch ở trên */}
       {!loading && (
         <>
+          {/* Vị trí */}
+          <LocationSection />
+          
+          {/* Lý do & Chính sách (MỚI) */}
+          <PolicySection />
+
+          {/* Tiện ích */}
           <AmenitiesSection data={amenities} />
+
+          {/* Tiến độ */}
+          <ProgressSection />
+
+          {/* Tin tức */}
           <div className="container mx-auto px-6"><div className="h-px bg-gray-200 w-full"></div></div>
           <NewsSection data={announcements} />
         </>
       )}
 
-      {/* PHẦN 3: FOOTER */}
-      <footer className="bg-slate-800 text-white py-12 mt-auto">
-         <div className="container mx-auto px-6 text-center">
-            <h3 className="text-xl font-bold mb-4">Ban Quản Lý Chung Cư Building Care</h3>
-            <p className="text-slate-400 mb-2">📍 Địa chỉ: Khu Công Nghệ Cao, TP. Thủ Đức, TP.HCM</p>
-            <p className="text-slate-400 mb-6">📞 Hotline: 1900 123 456</p>
-            <div className="border-t border-slate-700 pt-6 mt-6 text-sm text-slate-500">
-               &copy; 2025 Đồ án tốt nghiệp.
+      {/* --- PHẦN 3: FOOTER (Thiết kế lại theo ảnh Vinhomes) --- */}
+      <footer className="bg-[#00303d] text-white pt-16 pb-8"> {/* Màu xanh đậm của Vinhomes */}
+         <div className="container mx-auto px-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
+              
+              {/* Cột 1: Thông tin chung */}
+              <div>
+                 <h3 className="text-2xl font-bold mb-6 text-white tracking-tight">
+                   GRAND HORIZON
+                 </h3>
+                 <p className="mb-4 text-sm leading-relaxed max-w-sm">
+                   Biểu tượng của sự thịnh vượng và đẳng cấp tại khu Đông Sài Gòn.
+                 </p>
+                 <p className="text-slate-300 mb-4 text-sm leading-relaxed">
+                   <strong className="text-white block mb-1">Văn phòng đại diện:</strong>
+                   Tầng 68, Tòa nhà Bitexco, Quận 1, TP.HCM
+                 </p>
+                 <p className="text-slate-300 mb-4 text-sm leading-relaxed">
+                   <strong className="text-white block mb-1">Địa chỉ dự án:</strong>
+                   Khu Công Nghệ Cao, Phường Long Thạnh Mỹ, TP. Thủ Đức.
+                 </p>
+                 <p className="text-slate-300 text-sm">
+                   <strong className="text-white">Hotline:</strong> 1900 123 456
+                 </p>
+              </div>
+
+              {/* Cột 2: Thông tin dự án */}
+              <div>
+                <h4 className="text-lg font-bold mb-6 text-white">THÔNG TIN PHÂN KHU</h4>
+                <ul className="space-y-3 text-sm text-slate-300">
+                  <li><a href="#" className="hover:text-blue-400 transition">The Beverly Solari</a></li>
+                  <li><a href="#" className="hover:text-blue-400 transition">The Opus One</a></li>
+                  <li><a href="#" className="hover:text-blue-400 transition">Glory Heights</a></li>
+                  <li><a href="#" className="hover:text-blue-400 transition">Khu Biệt thự Manhattan</a></li>
+                  <li><a href="#" className="hover:text-blue-400 transition">Bến du thuyền Marina</a></li>
+                </ul>
+              </div>
+
+              {/* Cột 3: Đăng ký (Form giả lập) */}
+              <div>
+                <h4 className="text-lg font-bold mb-6 text-white">ĐĂNG KÝ NHẬN THÔNG TIN</h4>
+                <form className="space-y-3">
+                  <input type="text" placeholder="Họ tên *" className="w-full px-4 py-2 rounded bg-[#004557] border border-[#00586e] text-white placeholder-slate-400 focus:outline-none focus:border-blue-400" />
+                  <input type="text" placeholder="Số điện thoại *" className="w-full px-4 py-2 rounded bg-[#004557] border border-[#00586e] text-white placeholder-slate-400 focus:outline-none focus:border-blue-400" />
+                  <textarea placeholder="Yêu cầu thêm" rows="2" className="w-full px-4 py-2 rounded bg-[#004557] border border-[#00586e] text-white placeholder-slate-400 focus:outline-none focus:border-blue-400"></textarea>
+                  <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded transition-colors uppercase text-sm tracking-wider">
+                    Gửi Ngay
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <div className="border-t border-white/10 pt-8 text-center text-xs text-slate-500">
+               &copy; 2025 Grand Horizon. Developed by Nhóm 2.
             </div>
          </div>
       </footer>

@@ -94,11 +94,19 @@ export default function Navbar() {
       <div className="container mx-auto px-6 h-16 flex items-center justify-between">
         
         {/* LOGO */}
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow-sm">B</div>
-           <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-blue-500 hidden md:block">
-             Building Care
-           </span>
+        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate('/')}>
+           {/* Icon Logo sang trọng hơn */}
+           <div className="w-10 h-10 bg-gradient-to-br from-slate-800 to-black rounded-xl flex items-center justify-center text-white font-serif font-bold text-xl shadow-lg border border-slate-600 group-hover:scale-105 transition-transform">
+             G
+           </div>
+           <div className="hidden md:flex flex-col">
+             <span className="text-lg font-bold text-slate-800 leading-none tracking-tight">
+               GRAND HORIZON
+             </span>
+             <span className="text-[10px] text-slate-500 uppercase tracking-widest font-medium">
+               Premium Residence
+             </span>
+           </div>
         </div>
 
         {/* MENU CHÍNH */}

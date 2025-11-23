@@ -22,9 +22,21 @@ const getAllBlocks = async () => {
 const getBlockById = async (id) => {
   try {
     const response = await api.get(`/block/${id}`);
+    return response.data; // Dữ liệu: { MaBlock, TenBlock, Floors: [...] }
+  } catch (error) {
+    console.error(`Lỗi lấy chi tiết Block ${id}:`, error);
+    throw error;
+  }
+};
+
+// [MỚI] Hàm Setup Nhanh
+const createBlockSetup = async (setupData) => {
+  try {
+    // setupData = { TenBlock, SoTang, TongSoCanHo }
+    const response = await api.post('/block/setup', setupData);
     return response.data;
   } catch (error) {
-    console.error(`Lỗi khi lấy block ${id}:`, error.response || error);
+    console.error("Lỗi Setup Block:", error.response || error);
     throw error;
   }
 };
@@ -85,4 +97,5 @@ export const blockService = {
   update: updateBlock,
   delete: deleteBlock,
   setup: setupBlock, // Thêm hàm mới vào export
+  createSetup: createBlockSetup, // Thêm hàm mới vào export
 };

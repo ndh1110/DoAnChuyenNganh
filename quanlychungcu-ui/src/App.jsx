@@ -16,6 +16,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage"; 
 import ProtectedRoute from "./components/ProtectedRoute";
 import BlocksPage from "./pages/BlocksPage";
+import BlockDetailsPage from "./pages/BlockDetailsPage";
 import ResidentsPage from "./pages/ResidentsPage";
 import FloorsPage from "./pages/FloorsPage";
 import ApartmentsPage from "./pages/ApartmentsPage";
@@ -66,6 +67,7 @@ function AppContent() {
             <Route path="/" element={<DashboardPage />} /> {/* <-- ĐÃ SỬA */}
             
             <Route path="/blocks" element={<BlocksPage />} />
+            <Route path="/blocks/:id" element={<BlockDetailsPage />} />
             <Route path="/floors" element={<FloorsPage />} />
             <Route path="/apartments" element={<ApartmentsPage />} />
             <Route path="/residents" element={<ResidentsPage />} />

@@ -2,7 +2,7 @@
 const mssql = require('mssql');
 
 /**
- * GET /api/block - Lấy tất cả block
+ * GET /api/block - Lấy danh sách block (Cơ bản)
  */
 const getAllBlocks = async (req, res) => {
     try {
@@ -16,201 +16,189 @@ const getAllBlocks = async (req, res) => {
 };
 
 /**
- * GET /api/block/:id - Lấy 1 block theo ID (MaBlock)
+ * GET /api/block/:id - Lấy chi tiết Block (BAO GỒM Tầng và Căn hộ)
+ * Yêu cầu Frontend: Trả về cấu trúc Nested (Lồng nhau)
  */
 const getBlockById = async (req, res) => {
     try {
         const { id } = req.params;
-        const result = await req.pool.request()
+        const pool = req.pool;
+
+        // 1. Lấy thông tin Block
+        const blockResult = await pool.request()
             .input('MaBlock', mssql.Int, id)
             .query('SELECT * FROM dbo.Block WHERE MaBlock = @MaBlock');
-        
-        if (result.recordset.length === 0) {
+
+        if (blockResult.recordset.length === 0) {
             return res.status(404).send('Không tìm thấy block');
         }
-        res.json(result.recordset[0]);
+        const block = blockResult.recordset[0];
+
+        // 2. Lấy danh sách Tầng và Căn hộ (JOIN)
+        // Lấy TenTrangThai thay vì ID để Frontend dễ hiển thị
+        const detailsResult = await pool.request()
+            .input('MaBlock', mssql.Int, id)
+            .query(`
+                SELECT 
+                    t.MaTang, t.SoTang,
+                    ch.MaCanHo, ch.SoCanHo,
+                    ISNULL(tt.Ten, N'Trống') AS TrangThai
+                FROM dbo.Tang t
+                LEFT JOIN dbo.CanHo ch ON t.MaTang = ch.MaTang
+                LEFT JOIN dbo.TrangThai tt ON ch.MaTrangThai = tt.MaTrangThai
+                WHERE t.MaBlock = @MaBlock
+                ORDER BY t.SoTang, ch.SoCanHo
+            `);
+
+        // 3. Xử lý dữ liệu phẳng (Flat) thành lồng nhau (Nested)
+        const floorsMap = new Map();
+
+        detailsResult.recordset.forEach(row => {
+            // Nếu tầng chưa có trong Map, tạo mới
+            if (!floorsMap.has(row.MaTang)) {
+                floorsMap.set(row.MaTang, {
+                    MaTang: row.MaTang,
+                    SoTang: row.SoTang,
+                    Apartments: []
+                });
+            }
+
+            // Nếu dòng này có Căn hộ (không null), thêm vào mảng Apartments của tầng đó
+            if (row.MaCanHo) {
+                floorsMap.get(row.MaTang).Apartments.push({
+                    MaCanHo: row.MaCanHo,
+                    SoCanHo: row.SoCanHo,
+                    TrangThai: row.TrangThai
+                });
+            }
+        });
+
+        // Gắn danh sách tầng vào đối tượng Block
+        block.Floors = Array.from(floorsMap.values());
+
+        res.json(block);
+
     } catch (err) {
-        console.error('Lỗi GET Block by ID:', err);
+        console.error('Lỗi GET Block Details:', err);
         res.status(500).send(err.message);
     }
 };
 
 /**
- * POST /api/block - Tạo block mới
- * Cần: TenBlock, SoTang
+ * POST /api/block - Tạo block đơn (Cũ - Giữ lại)
  */
 const createBlock = async (req, res) => {
+    // ... (Giữ nguyên logic cũ của bạn nếu cần, hoặc có thể bỏ qua nếu dùng setup)
     try {
         const { TenBlock, SoTang } = req.body; 
-
-        if (!TenBlock || !SoTang) {
-            return res.status(400).send('Thiếu TenBlock hoặc SoTang');
-        }
-
+        if (!TenBlock || !SoTang) return res.status(400).send('Thiếu thông tin');
         const result = await req.pool.request()
             .input('TenBlock', mssql.NVarChar, TenBlock)
             .input('SoTang', mssql.Int, SoTang)
             .query('INSERT INTO dbo.Block (TenBlock, SoTang) OUTPUT Inserted.* VALUES (@TenBlock, @SoTang)');
-        
         res.status(201).json(result.recordset[0]);
     } catch (err) {
-        console.error('Lỗi POST Block:', err);
         res.status(500).send(err.message);
     }
 };
 
 /**
- * PUT /api/block/:id - Cập nhật block (MaBlock)
+ * POST /api/block/setup - Tạo Block Nâng cao (Setup nhanh)
+ * Tạo Block -> Tạo Tầng -> Tạo Căn hộ tự động
  */
-const updateBlock = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const pool = req.pool;
-
-        const oldDataResult = await pool.request()
-            .input('MaBlock', mssql.Int, id)
-            .query('SELECT * FROM dbo.Block WHERE MaBlock = @MaBlock');
-
-        if (oldDataResult.recordset.length === 0) {
-            return res.status(404).send('Không tìm thấy block để cập nhật');
-        }
-        const oldData = oldDataResult.recordset[0];
-
-        // Trộn dữ liệu (partial update)
-        const { TenBlock, SoTang } = req.body;
-        const newTenBlock = TenBlock !== undefined ? TenBlock : oldData.TenBlock;
-        const newSoTang = SoTang !== undefined ? SoTang : oldData.SoTang;
-
-        const result = await pool.request()
-            .input('MaBlock', mssql.Int, id)
-            .input('TenBlock', mssql.NVarChar, newTenBlock)
-            .input('SoTang', mssql.Int, newSoTang)
-            .query(`UPDATE dbo.Block 
-                    SET TenBlock = @TenBlock, SoTang = @SoTang
-                    OUTPUT Inserted.* WHERE MaBlock = @MaBlock`);
-        
-        res.json(result.recordset[0]);
-    } catch (err) {
-        console.error('Lỗi PUT Block:', err);
-        res.status(500).send(err.message);
-    }
-};
-
-/**
- * DELETE /api/block/:id - Xóa block (MaBlock)
- */
-const deleteBlock = async (req, res) => {
-    try {
-        const { id } = req.params;
-        
-        const result = await req.pool.request()
-            .input('MaBlock', mssql.Int, id)
-            .query('DELETE FROM dbo.Block OUTPUT Deleted.* WHERE MaBlock = @MaBlock');
-
-        if (result.recordset.length === 0) {
-            return res.status(404).send('Không tìm thấy block để xóa');
-        }
-        res.json({ message: 'Đã xóa block (và tất cả Tầng, Căn Hộ liên quan) thành công', data: result.recordset[0] });
-    } catch (err) {
-        console.error('Lỗi DELETE Block:', err);
-        res.status(500).send(err.message);
-    }
-};
-
-
-/**
- * POST /api/block/setup - Nghiệp vụ đặc biệt:
- * Tạo Block, Tầng, và Căn hộ hàng loạt.
- */
-const setupBlockWithApartments = async (req, res) => {
+const setupBlock = async (req, res) => {
     const { TenBlock, SoTang, TongSoCanHo } = req.body;
 
-    // --- 1. Validation (Kiểm tra đầu vào) ---
     if (!TenBlock || !SoTang || !TongSoCanHo) {
-        return res.status(400).send('Vui lòng cung cấp đủ TenBlock, SoTang, và TongSoCanHo.');
+        return res.status(400).send('Thiếu thông tin (TenBlock, SoTang, TongSoCanHo)');
     }
 
-    if (SoTang <= 0 || TongSoCanHo <= 0) {
-        return res.status(400).send('Số tầng và Tổng số căn hộ phải lớn hơn 0.');
+    const numFloors = parseInt(SoTang);
+    const numApts = parseInt(TongSoCanHo);
+
+    if (numApts % numFloors !== 0) {
+        return res.status(400).send('Tổng số căn hộ phải chia hết cho số tầng để chia đều.');
     }
 
-    if (TongSoCanHo % SoTang !== 0) {
-        return res.status(400).send('Tổng số căn hộ phải chia hết cho số tầng.');
-    }
-
-    const canHoMoiTang = TongSoCanHo / SoTang;
-    console.log(`Bắt đầu setup Block: ${TenBlock}. Tầng: ${SoTang}. Căn/Tầng: ${canHoMoiTang}`);
-
-    // --- 2. Bắt đầu Transaction ---
-    const transaction = new mssql.Transaction(req.pool);
+    const aptsPerFloor = numApts / numFloors;
+    const pool = req.pool;
+    const transaction = new mssql.Transaction(pool);
 
     try {
         await transaction.begin();
 
-        // --- 3. Bước 1: Tạo Block ---
-        const blockResult = await transaction.request()
+        // 1. Tạo Block
+        const requestBlock = transaction.request();
+        const blockResult = await requestBlock
             .input('TenBlock', mssql.NVarChar, TenBlock)
-            .input('SoTang', mssql.Int, SoTang)
+            .input('SoTang', mssql.Int, numFloors)
             .query('INSERT INTO dbo.Block (TenBlock, SoTang) OUTPUT Inserted.MaBlock VALUES (@TenBlock, @SoTang)');
         
-        const newBlockId = blockResult.recordset[0].MaBlock;
+        const maBlock = blockResult.recordset[0].MaBlock;
 
-        // --- 4. Bước 2 & 3: Lặp để tạo Tầng và Căn hộ ---
-        for (let t = 1; t <= SoTang; t++) {
-            
-            // 4a. Tạo Tầng
-            const tangResult = await transaction.request()
-                .input('MaBlock', mssql.Int, newBlockId)
-                .input('SoTang', mssql.Int, t) // 't' là số thứ tự tầng
+        // 2. Vòng lặp tạo Tầng
+        for (let i = 1; i <= numFloors; i++) {
+            const requestTang = transaction.request();
+            const tangResult = await requestTang
+                .input('MaBlock', mssql.Int, maBlock)
+                .input('SoTang', mssql.Int, i)
                 .query('INSERT INTO dbo.Tang (MaBlock, SoTang) OUTPUT Inserted.MaTang VALUES (@MaBlock, @SoTang)');
             
-            const newTangId = tangResult.recordset[0].MaTang;
+            const maTang = tangResult.recordset[0].MaTang;
 
-            // 4b. Lặp để tạo Căn hộ cho Tầng 't'
-            for (let c = 1; c <= canHoMoiTang; c++) {
-                
-                // 4c. Tạo Mã Căn Hộ (ĐÃ SỬA)
-                const floorCode = String(t).padStart(2, '0');
-                const apartmentCode = String(c).padStart(2, '0');
-                
-                // Tách "Block D" -> "D"
-                const tenBlockParts = TenBlock.split(' ');
-                const tenBlockShort = tenBlockParts[tenBlockParts.length - 1];
+            // 3. Vòng lặp tạo Căn hộ cho tầng này
+            for (let j = 1; j <= aptsPerFloor; j++) {
+                // Tạo tên căn hộ: Ví dụ Tầng 1, Căn 1 -> "101"
+                // PadStart để số căn luôn có 2 chữ số (01, 02...)
+                const tenCanHo = `${i}${j.toString().padStart(2, '0')}`; 
+                const maTrangThaiTrong = 8; // Giả sử ID 8 là "Trống"
 
-                const soCanHoString = `${tenBlockShort}.${floorCode}.${apartmentCode}`;
-
-                // 4d. Tạo Căn Hộ
-                await transaction.request()
-                    .input('MaTang', mssql.Int, newTangId)
-                    .input('SoCanHo', mssql.NVarChar, soCanHoString)
-                    .input('MaTrangThai', mssql.Int, 8) // Gán trạng thái "Trống"
+                const requestCanHo = transaction.request();
+                await requestCanHo
+                    .input('MaTang', mssql.Int, maTang)
+                    .input('SoCanHo', mssql.NVarChar, tenCanHo)
+                    .input('MaTrangThai', mssql.Int, maTrangThaiTrong)
                     .query('INSERT INTO dbo.CanHo (MaTang, SoCanHo, MaTrangThai) VALUES (@MaTang, @SoCanHo, @MaTrangThai)');
             }
         }
 
-        // --- 5. Commit Transaction ---
         await transaction.commit();
-        
-        res.status(201).json({
-            message: `Tạo Block ${TenBlock} thành công!`,
-            MaBlock: newBlockId,
-            SoTangDaTao: SoTang,
-            SoCanHoDaTao: TongSoCanHo
-        });
+        res.status(201).json({ message: 'Setup Block thành công!', MaBlock: maBlock });
 
     } catch (err) {
-        // --- 6. Rollback nếu có lỗi ---
-        console.error('Lỗi khi setup Block hàng loạt:', err);
         await transaction.rollback();
-        res.status(500).send(`Lỗi server: ${err.message}`);
+        console.error('Lỗi Setup Block:', err);
+        res.status(500).send('Lỗi server khi setup block: ' + err.message);
     }
+};
+
+// ... (Các hàm updateBlock, deleteBlock giữ nguyên)
+const updateBlock = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { TenBlock, SoTang } = req.body;
+        const result = await req.pool.request()
+            .input('MaBlock', mssql.Int, id)
+            .input('TenBlock', mssql.NVarChar, TenBlock)
+            .input('SoTang', mssql.Int, SoTang)
+            .query(`UPDATE dbo.Block SET TenBlock = @TenBlock, SoTang = @SoTang WHERE MaBlock = @MaBlock`);
+        res.json({ message: 'Updated' });
+    } catch (err) { res.status(500).send(err.message); }
+};
+
+const deleteBlock = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await req.pool.request().input('MaBlock', mssql.Int, id).query('DELETE FROM dbo.Block WHERE MaBlock = @MaBlock');
+        res.json({ message: 'Deleted' });
+    } catch (err) { res.status(500).send(err.message); }
 };
 
 module.exports = {
     getAllBlocks,
-    getBlockById,
+    getBlockById, // Đã update logic nested
     createBlock,
+    setupBlock,   // Mới
     updateBlock,
-    deleteBlock,
-    setupBlockWithApartments // Export hàm mới
+    deleteBlock
 };

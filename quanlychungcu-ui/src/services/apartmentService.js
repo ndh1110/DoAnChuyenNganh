@@ -1,7 +1,7 @@
 // src/services/apartmentService.js
 import api from './api';
 
-// ... (Giữ nguyên các hàm getAll, getById, delete)
+// --- CÁC HÀM CŨ ---
 const getAllApartments = async () => {
   try {
     const response = await api.get('/canho');
@@ -32,12 +32,8 @@ const deleteApartment = async (id) => {
   }
 };
 
-// --- CẬP NHẬT 2 HÀM NÀY ---
-
-// Tạo Căn hộ mới (Nhận FormData)
 const createApartment = async (apartmentData) => {
   try {
-    // Khi gửi file, axios tự động set Content-Type là multipart/form-data nếu data là FormData
     const response = await api.post('/canho', apartmentData);
     return response.data;
   } catch (error) {
@@ -46,7 +42,6 @@ const createApartment = async (apartmentData) => {
   }
 };
 
-// Cập nhật Căn hộ (Nhận FormData)
 const updateApartment = async (id, apartmentData) => {
   try {
     const response = await api.put(`/canho/${id}`, apartmentData);
@@ -57,8 +52,6 @@ const updateApartment = async (id, apartmentData) => {
   }
 };
 
-
-// Hàm Import Excel (Giữ nguyên)
 const importExcel = async (formData) => {
   try {
     const response = await api.post('/canho/import-excel', formData, {
@@ -71,6 +64,20 @@ const importExcel = async (formData) => {
   }
 };
 
+
+// --- BỔ SUNG: HÀM TOGGLE RENT STATUS ---
+const toggleRentStatus = async (id) => {
+  try {
+    // Gọi API PUT /canho/toggle-rent/:id
+    const response = await api.put(`/canho/toggle-rent/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Lỗi khi toggle trạng thái thuê căn hộ ${id}:`, error.response || error);
+    throw error;
+  }
+};
+
+
 export const apartmentService = {
   getAll: getAllApartments,
   getById: getApartmentById,
@@ -78,4 +85,6 @@ export const apartmentService = {
   update: updateApartment,
   delete: deleteApartment,
   importExcel: importExcel,
+  // --- QUAN TRỌNG: EXPORT HÀM NÀY ---
+  toggleRentStatus: toggleRentStatus, 
 };

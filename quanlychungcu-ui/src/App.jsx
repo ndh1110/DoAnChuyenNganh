@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { authService } from "./services/authService";
 
 // 2. IMPORT CÁC COMPONENT VÀ TRANG
+import MyApartmentPage from "./pages/MyApartmentPage";
 import ApartmentShowcasePage from "./pages/ApartmentShowcasePage";
 import ProfilePage from './pages/ProfilePage';
 import DashboardPage from "./pages/DashboardPage"; // <-- 2. IMPORT FILE MỚI
@@ -66,6 +67,7 @@ function AppContent() {
             {/* --- 3. SỬA LỖI Ở ĐÂY --- */}
             <Route path="/" element={<DashboardPage />} /> {/* <-- ĐÃ SỬA */}
             
+            <Route path="/my-apartment" element={<MyApartmentPage />} />
             <Route path="/blocks" element={<BlocksPage />} />
             <Route path="/blocks/:id" element={<BlockDetailsPage />} />
             <Route path="/floors" element={<FloorsPage />} />

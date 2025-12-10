@@ -6,6 +6,13 @@ const xlsx = require('xlsx');
  * GET /api/canho
  * Lấy danh sách căn hộ (Kèm cột HinhAnh)
  */
+// controllers/canHoController.js (Chỉ sửa hàm getAllCanHo)
+// ...
+
+/**
+ * GET /api/canho
+ * SỬA LẠI: Lấy danh sách căn hộ KÈM THÔNG TIN HỢP ĐỒNG, CƯ DÂN và cờ cho thuê (IsAvailableForRent)
+ */
 const getAllCanHo = async (req, res) => {
     try {
         const result = await req.pool.request()
@@ -13,15 +20,33 @@ const getAllCanHo = async (req, res) => {
                 SELECT 
                     ch.MaCanHo, ch.SoCanHo,
                     ch.LoaiCanHo, ch.DienTich,
-                    ch.HinhAnh, -- <--- THÊM: Lấy đường dẫn ảnh
-                    t.MaTang, t.SoTang,
-                    b.MaBlock, b.TenBlock,
-                    ch.MaTrangThai,
-                    ISNULL(tt.Ten, 'N/A') AS TenTrangThai
+                    ch.HinhAnh, ch.MaTrangThai,
+                    b.TenBlock, t.SoTang,
+                    ISNULL(tt.Ten, 'N/A') AS TenTrangThai,
+                    ch.IsAvailableForRent, -- <--- CỘT CỜ CHO THUÊ
+
+                    -- Lấy HỢP ĐỒNG ĐANG CÓ HIỆU LỰC MỚI NHẤT
+                    hd.Loai AS LoaiHopDong,
+                    hd.NgayHetHan,
+                    ndB.HoTen AS TenBenB,
+                    ndB.SoDienThoai AS SDTBenB -- Người đang ở/sở hữu
+
                 FROM dbo.CanHo ch
                 JOIN dbo.Tang t ON ch.MaTang = t.MaTang
                 JOIN dbo.Block b ON t.MaBlock = b.MaBlock
                 LEFT JOIN dbo.TrangThai tt ON ch.MaTrangThai = tt.MaTrangThai
+                
+                -- Kỹ thuật OUTER APPLY: Lấy đúng 1 dòng hợp đồng MỚI NHẤT có BenB_Id
+                OUTER APPLY (
+                    SELECT TOP 1 Loai, BenB_Id, NgayHetHan
+                    FROM dbo.HopDong
+                    WHERE MaCanHo = ch.MaCanHo
+                    -- Chỉ lấy hợp đồng có Bên B (có người đứng tên) và NgayHetHan chưa qua
+                    -- (Cần điều chỉnh thêm nếu bạn có trường TrangThaiHopDong)
+                    ORDER BY NgayKy DESC
+                ) hd
+                LEFT JOIN dbo.NguoiDung ndB ON hd.BenB_Id = ndB.MaNguoiDung
+
                 ORDER BY b.TenBlock, t.SoTang, ch.SoCanHo
             `);
         res.json(result.recordset);
@@ -30,6 +55,7 @@ const getAllCanHo = async (req, res) => {
         res.status(500).send(err.message);
     }
 };
+
 
 /**
  * GET /api/canho/:id
@@ -128,11 +154,35 @@ const updateCanHo = async (req, res) => {
             return res.status(404).send('Không tìm thấy căn hộ để cập nhật');
         }
         const oldData = oldDataResult.recordset[0];
+        
+        // --- LOGIC KIỂM TRA TÍNH TOÀN VẸN DỮ LIỆU ---
+        const NEW_EMPTY_STATUS = 8; // Giả sử MaTrangThai = 8 là "Trống"
+        
+        // Nếu người dùng cố gắng đặt trạng thái thành TRỐNG (8) và MaTrangThai mới khác cũ
+        if (MaTrangThai !== undefined && parseInt(MaTrangThai) === NEW_EMPTY_STATUS && MaTrangThai !== oldData.MaTrangThai) {
+            
+            // Kiểm tra xem căn hộ có bất kỳ hợp đồng Mua/Bán hoặc Cho Thuê nào đang tồn tại không
+            const activeContractCheck = await pool.request()
+                .input('MaCanHo', mssql.Int, id)
+                .query(`
+                    SELECT TOP 1 MaHopDong 
+                    FROM dbo.HopDong 
+                    WHERE MaCanHo = @MaCanHo 
+                    AND (Loai = 'Mua/Bán' OR Loai = 'Cho Thuê')
+                    -- Có thể thêm điều kiện kiểm tra ngày hết hạn nếu cần thiết cho HĐ Thuê
+                `);
+
+            if (activeContractCheck.recordset.length > 0) {
+                return res.status(400).send('Không thể đặt trạng thái thành "Trống" (ID 8) vì căn hộ này đang có Hợp đồng Mua/Bán hoặc Cho Thuê có hiệu lực.');
+            }
+        }
+        // --------------------------------------------------
 
         // 3. Trộn dữ liệu (Merge)
         const newSoCanHo = SoCanHo !== undefined ? SoCanHo : oldData.SoCanHo;
         const newMaTang = MaTang !== undefined ? MaTang : oldData.MaTang;
-        const newMaTrangThai = MaTrangThai !== undefined ? MaTrangThai : oldData.MaTrangThai;
+        // Sử dụng MaTrangThai mới đã qua kiểm tra
+        const newMaTrangThai = MaTrangThai !== undefined ? MaTrangThai : oldData.MaTrangThai; 
         const newLoaiCanHo = LoaiCanHo !== undefined ? LoaiCanHo : oldData.LoaiCanHo;
         const newDienTich = DienTich !== undefined ? DienTich : oldData.DienTich;
         
@@ -306,11 +356,84 @@ const importFromExcel = async (req, res) => {
     }
 };
 
+const toggleRentStatus = async (req, res) => {
+    // 1. Lấy và chuẩn bị dữ liệu
+    const { id } = req.params; // MaCanHo
+    const userId = req.user.id || req.user.MaNguoiDung; 
+    const userRole = req.user.role;
+
+    // Ép kiểu tham số
+    const MaCanHo_Int = parseInt(id);
+    const UserId_Int = parseInt(userId);
+
+    if (isNaN(MaCanHo_Int) || isNaN(UserId_Int)) {
+        return res.status(400).send('Tham số ID hoặc User ID không hợp lệ.');
+    }
+
+    try {
+        const pool = req.pool;
+        const request = pool.request(); // Tạo request duy nhất để khai báo tham số
+
+        // KHAI BÁO BIẾN THAM SỐ SQL (Fix lỗi cú pháp: Msg 137)
+        request.input('MaCanHo', mssql.Int, MaCanHo_Int);
+        request.input('UserId', mssql.Int, UserId_Int); 
+
+        // BƯỚC 1: KIỂM TRA QUYỀN SỞ HỮU (Authorization)
+        if (userRole !== 'Quản lý' && userRole !== 'Admin') {
+            
+            // Truy vấn kiểm tra Hợp đồng Mua/Bán mới nhất mà user là BenB (Chủ sở hữu).
+            const checkOwnerQuery = `
+                SELECT TOP 1 hd.MaHopDong
+                FROM dbo.HopDong hd
+                WHERE hd.MaCanHo = @MaCanHo 
+                AND hd.Loai = 'Mua/Bán'
+                AND hd.BenB_Id = @UserId  
+                ORDER BY hd.NgayKy DESC
+            `;
+            
+            const ownerCheck = await request.query(checkOwnerQuery);
+            
+            if (ownerCheck.recordset.length === 0) {
+                // Trả về 403 Forbidden nếu không phải chủ sở hữu hợp pháp
+                return res.status(403).send(`Forbidden: Bạn không phải Chủ sở hữu HĐ Mua/Bán của căn hộ này.`);
+            }
+        }
+
+        // BƯỚC 2: ĐẢO NGƯỢC TRẠNG THÁI (Toggle)
+        const updateQuery = `
+            UPDATE dbo.CanHo
+            -- SỬA CUỐI CÙNG: Dùng phép toán 1 - X để đảm bảo đảo ngược giá trị BIT (0 thành 1, 1 thành 0)
+            SET IsAvailableForRent = 1 - COALESCE(IsAvailableForRent, 0) 
+            OUTPUT Inserted.IsAvailableForRent
+            WHERE MaCanHo = @MaCanHo
+        `;
+
+        // Chạy truy vấn UPDATE bằng request đã khai báo tham số
+        const result = await request.query(updateQuery); 
+
+        if (result.recordset.length === 0) {
+             return res.status(404).send('Không tìm thấy căn hộ để cập nhật trạng thái.');
+        }
+
+        const newStatus = result.recordset[0].IsAvailableForRent;
+        
+        // 3. Trả về kết quả thành công
+        res.json({ 
+            message: newStatus ? 'Đã bật chế độ cho thuê' : 'Đã tắt chế độ cho thuê',
+            isAvailable: newStatus
+        });
+
+    } catch (err) {
+        console.error('Lỗi TOGGLE RENT STATUS:', err);
+        res.status(500).send(err.message);
+    }
+};
 module.exports = {
     getAllCanHo,
     getCanHoById,
     createCanHo,
     updateCanHo,
     deleteCanHo,
-    importFromExcel
+    importFromExcel,
+    toggleRentStatus
 };

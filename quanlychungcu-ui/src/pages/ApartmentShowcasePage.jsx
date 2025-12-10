@@ -167,15 +167,51 @@ function ApartmentShowcasePage() {
                   <p><strong>📐 Diện tích:</strong> {selectedApartment.DienTich} m²</p>
                   <p><strong>⚡ Trạng thái:</strong> {selectedApartment.TenTrangThai}</p>
               </div>
-              
-              <div style={{ marginTop: '30px' }}>
+
+    <div style={{ marginTop: '30px' }}>
+                 {/* 1. TRƯỜNG HỢP CĂN HỘ CHƯA CÓ CHỦ SỞ HỮU (TRỐNG) */}
                  {selectedApartment.TenTrangThai === 'Trống' ? (
-                    <button className="btn-submit" style={{ width: '100%', padding: '15px', fontSize: '1.1em' }} onClick={handleOpenBooking}>
-                      📅 Liên hệ đặt lịch xem nhà
+                    <button 
+                        className="btn-submit" 
+                        style={{ width: '100%', padding: '15px', fontSize: '1.1em' }} 
+                        onClick={handleOpenBooking}
+                    >
+                      📅 Liên hệ đặt lịch xem nhà (Quản lý)
                     </button>
+                 
+                 // 2. TRƯỜNG HỢP CĂN HỘ CÓ CHỦ SỞ HỮU & ĐĂNG CHO THUÊ
+                 ) : (selectedApartment.TenTrangThai !== 'Trống' && selectedApartment.IsAvailableForRent === true) ? (
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <p style={{ fontWeight: 'bold', margin: '0 0 5px 0' }}>
+                            Chủ căn hộ: {selectedApartment.TenBenB}
+                        </p>
+                        
+                        {/* NÚT 1: GỌI ĐIỆN / HIỂN THỊ SĐT */}
+                        <a 
+                            href={`tel:${selectedApartment.SDTBenB}`}
+                            style={styles.contactButton}
+                        >
+                            📞 Gọi điện ({selectedApartment.SDTBenB || 'Không rõ SĐT'})
+                        </a>
+                        
+                        {/* NÚT 2: LIÊN HỆ QUA ZALO */}
+                        <a 
+                            // Giả sử SĐT đã đăng ký Zalo
+                            href={`https://zalo.me/${selectedApartment.SDTBenB}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{...styles.contactButton, backgroundColor: '#0084ff'}}
+                        >
+                            💬 Liên hệ qua Zalo
+                        </a>
+                        
+                    </div>
+
+                 // 3. TRƯỜNG HỢP CĂN HỘ KHÔNG CÓ SẴN
                  ) : (
                     <button disabled style={{ width: '100%', padding: '15px', background: '#e0e0e0', cursor: 'not-allowed' }}>
-                      🚫 Đã có người ở
+                      🚫 Đã có người ở / Chưa sẵn sàng cho thuê
                     </button>
                  )}
               </div>
@@ -223,7 +259,18 @@ const styles = {
   cardInfo: { padding: '15px 20px' },
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', opacity: 0, transition: 'opacity 0.3s' },
   detailSection: { backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 8px 25px rgba(0,0,0,0.1)', padding: '30px', marginBottom: '40px', position: 'relative', border: '1px solid #ddd' },
-  closeDetailBtn: { position: 'absolute', top: '10px', right: '15px', background: 'none', border: 'none', fontSize: '2em', cursor: 'pointer', color: '#666' }
+  closeDetailBtn: { position: 'absolute', top: '10px', right: '15px', background: 'none', border: 'none', fontSize: '2em', cursor: 'pointer', color: '#666' },
+  contactButton: { 
+    display: 'block', 
+    padding: '12px', 
+    textAlign: 'center', 
+    borderRadius: '8px', 
+    fontWeight: 'bold', 
+    textDecoration: 'none',
+    color: '#fff',
+    backgroundColor: '#2ecc71', // Màu xanh lá cho cuộc gọi
+    transition: 'background-color 0.2s'
+  },
 };
 
 export default ApartmentShowcasePage;

@@ -72,10 +72,10 @@ const getHopDongById = async (req, res) => {
 };
 
 // CREATE (Transaction: Hợp đồng + Điều khoản)
+// controllers/hopDongController.js (Hàm createHopDong)
 const createHopDong = async (req, res) => {
     const transaction = new mssql.Transaction(req.pool);
     try {
-        // Nhận BenB_Id từ body (thay vì ChuHoId)
         const { 
             SoHopDong, MaCanHo, BenB_Id, BenA_Id,
             Loai, GiaTriHopDong, SoTienCoc, 
@@ -88,6 +88,7 @@ const createHopDong = async (req, res) => {
 
         await transaction.begin();
 
+        // 1. TẠO HỢP ĐỒNG
         const requestHD = new mssql.Request(transaction);
         const resultHD = await requestHD
             .input('SoHopDong', mssql.NVarChar, SoHopDong)
@@ -113,6 +114,7 @@ const createHopDong = async (req, res) => {
         
         const newMaHopDong = resultHD.recordset[0].MaHopDong;
 
+        // 2. THÊM ĐIỀU KHOẢN (giữ nguyên)
         if (DieuKhoans && Array.isArray(DieuKhoans) && DieuKhoans.length > 0) {
             for (const noiDung of DieuKhoans) {
                 const requestDK = new mssql.Request(transaction);
@@ -123,6 +125,22 @@ const createHopDong = async (req, res) => {
             }
         }
 
+        // 3. BỔ SUNG: CẬP NHẬT TRẠNG THÁI CĂN HỘ (FIX LỖI MÂU THUẪN DỮ LIỆU)
+        let newApartmentStatusId;
+        if (Loai === 'Mua/Bán') {
+            newApartmentStatusId = 9; // MaTrangThai 9: Đã bán/Sở hữu
+        } else if (Loai === 'Cho Thuê') {
+            newApartmentStatusId = 10; // MaTrangThai 10: Đang cho thuê
+        }
+
+        if (newApartmentStatusId) {
+            const requestCH = new mssql.Request(transaction);
+            await requestCH
+                .input('MaCanHo', mssql.Int, MaCanHo)
+                .input('MaTrangThaiMoi', mssql.Int, newApartmentStatusId)
+                .query(`UPDATE dbo.CanHo SET MaTrangThai = @MaTrangThaiMoi WHERE MaCanHo = @MaCanHo`);
+        }
+        
         await transaction.commit();
         res.status(201).json({ message: 'Thành công', MaHopDong: newMaHopDong });
     } catch (err) {

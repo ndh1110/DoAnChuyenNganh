@@ -179,20 +179,19 @@ const updateHoaDonStatus = async (req, res) => {
  */
 const getMyHoaDon = async (req, res) => {
   try {
-    // 1. Lấy pool và user ID
     const pool = req.pool;
-    const maNguoiDung = req.user.id; // Từ middleware 'protect'
+    const maNguoiDung = req.user.id; 
 
-    // 2. Lấy tham số lọc (nếu có)
-    const { TrangThai } = req.query;
+    // Lấy tham số chuỗi trạng thái từ Frontend
+    const { TrangThai } = req.query; // Ví dụ: 'Chờ thanh toán'
 
     const request = pool.request();
+    request.input('MaNguoiDung', mssql.Int, maNguoiDung);
 
-    // 3. Xây dựng câu query (Tương tự getAllHoaDon)
     let query = `
         SELECT 
             hd.MaHoaDon, hd.KyThang, hd.NgayPhatHanh, hd.NgayDenHan, hd.TongTien,
-            hd.TrangThai,
+            hd.TrangThai, -- Cột này là INT, lưu ID trạng thái
             ch.MaCanHo, ch.SoCanHo,
             t.SoTang,
             b.TenBlock
@@ -202,32 +201,39 @@ const getMyHoaDon = async (req, res) => {
         JOIN dbo.Block b ON t.MaBlock = b.MaBlock
     `;
 
-    // 4. THÊM LOGIC LỌC CHO CƯ DÂN
-    // (Sao chép logic lọc Cư dân từ hàm getAllHoaDon cũ)
-    // Cư dân chỉ thấy hóa đơn của các căn hộ họ làm chủ hộ (trong Hợp Đồng)
+    // 4. LOGIC LỌC CƯ DÂN (Đã sửa lỗi ChuHoId)
     query += ` 
-        JOIN dbo.HopDong hd_filter ON ch.MaCanHo = hd_filter.MaCanHo
-        WHERE hd_filter.ChuHoId = @MaNguoiDung
+        WHERE ch.MaCanHo IN (
+            SELECT MaCanHo FROM dbo.HopDong 
+            -- Đảm bảo kiểm tra cả BenB_Id (mua/thuê) và BenA_Id (chủ nhà cho thuê)
+            WHERE BenB_Id = @MaNguoiDung OR BenA_Id = @MaNguoiDung
+        )
     `;
-    request.input('MaNguoiDung', mssql.Int, maNguoiDung);
 
-    // 5. Thêm logic lọc TrangThai (nếu có)
+    // 5. Thêm logic lọc TrangThai (SỬA LỖI CHUYỂN ĐỔI KIỂU DỮ LIỆU)
     if (TrangThai) {
-      // Lưu ý: Phải dùng 'AND' vì mệnh đề 'WHERE' đã tồn tại
-      query += ` AND hd.TrangThai = @TrangThai`;
-      request.input('TrangThai', mssql.NVarChar, TrangThai);
+        // Khai báo tham số NVARCHAR
+        request.input('TrangThaiFilter', mssql.NVarChar, TrangThai);
+        
+        // Lọc an toàn: Dùng truy vấn phụ để tìm ID trạng thái (INT) từ tên (NVARCHAR)
+        query += ` 
+            AND hd.TrangThai IN (
+                SELECT MaTrangThai 
+                FROM dbo.TrangThai 
+                WHERE Ten = @TrangThaiFilter
+            )
+        `;
     }
 
     query += ' ORDER BY hd.KyThang DESC, ch.SoCanHo';
     
     const result = await request.query(query);
     
-    // 6. Trả về mảng (dù là rỗng)
     res.status(200).json(result.recordset);
 
   } catch (error) {
     console.error("Lỗi khi Cư dân lấy hóa đơn (getMyHoaDon):", error);
-    res.status(500).json({ message: "Lỗi máy chủ nội bộ." });
+    res.status(500).json({ message: "Lỗi máy chủ nội bộ. Vui lòng kiểm tra log server." });
   }
 };
 

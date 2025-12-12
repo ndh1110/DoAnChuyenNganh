@@ -1,6 +1,77 @@
 // controllers/lichSuCuTruController.js
 const mssql = require('mssql');
 
+// 1. ĐỊNH NGHĨA GIỚI HẠN CƯ TRÚ THEO LOẠI CĂN HỘ
+// Dựa trên LoaiCanHo (ví dụ: 'Studio', '1PN', '2PN', '3PN')
+const RESIDENT_LIMITS = {
+    'Studio': 2,
+    '1PN': 3,
+    '2PN': 5,
+    '3PN': 7,
+    'default': 4
+};
+
+const getLimitByApartmentType = (loaiCanHo) => {
+    // Trả về giới hạn số người dựa trên loại căn hộ
+    // Loại bỏ khoảng trắng và chuyển sang chữ hoa (nếu tên loại căn hộ không thống nhất)
+    const key = String(loaiCanHo || '').trim().toUpperCase();
+    
+    // Tùy chỉnh logic mapping (ví dụ: nếu LoaiCanHo chứa '1PN')
+    if (key.includes('1PN')) return RESIDENT_LIMITS['1PN'];
+    if (key.includes('2PN')) return RESIDENT_LIMITS['2PN'];
+    if (key.includes('3PN')) return RESIDENT_LIMITS['3PN'];
+    if (key.includes('STUDIO')) return RESIDENT_LIMITS['Studio'];
+    
+    return RESIDENT_LIMITS.default;
+};
+
+// Hàm tiện ích: Kiểm tra giới hạn cư trú
+const checkResidentLimit = async (pool, MaCanHo) => {
+    // 1. Lấy thông tin Loại Căn Hộ và GioiHan
+    const aptInfoQuery = `
+        SELECT LoaiCanHo 
+        FROM dbo.CanHo 
+        WHERE MaCanHo = @MaCanHo
+    `;
+    
+    const aptInfoResult = await pool.request()
+        .input('MaCanHo', mssql.Int, MaCanHo)
+        .query(aptInfoQuery);
+
+    if (aptInfoResult.recordset.length === 0) {
+        return { canAdd: false, message: 'Không tìm thấy căn hộ.', limit: 0 };
+    }
+    
+    const loaiCanHo = aptInfoResult.recordset[0].LoaiCanHo; // Ví dụ: '2PN'
+    const maxLimit = getLimitByApartmentType(loaiCanHo);
+
+    // 2. Đếm số lượng người đang cư trú (active)
+    // Điều kiện: DenNgay IS NULL (đang ở) HOẶC DenNgay > Ngày hiện tại
+    const countQuery = `
+        SELECT COUNT(MaLichSu) AS TotalResidents
+        FROM dbo.LichSuCuTru
+        WHERE MaCanHo = @MaCanHo
+        AND (DenNgay IS NULL OR DenNgay > GETDATE())
+    `;
+
+    const countResult = await pool.request()
+        .input('MaCanHo', mssql.Int, MaCanHo)
+        .query(countQuery);
+        
+    const currentResidents = countResult.recordset[0].TotalResidents;
+
+    // 3. So sánh
+    if (currentResidents >= maxLimit) {
+        return { 
+            canAdd: false, 
+            message: `Căn hộ loại ${loaiCanHo} đã đạt giới hạn cư trú tối đa: ${maxLimit} người.`, 
+            limit: maxLimit,
+            current: currentResidents
+        };
+    }
+    
+    return { canAdd: true, maxLimit, current: currentResidents };
+};
 /**
  * GET /api/lichsucutru - Lấy tất cả lịch sử cư trú
  * (JOIN với Người Dùng, Căn Hộ, Tầng, Block)
@@ -157,10 +228,83 @@ const deleteLichSuCuTru = async (req, res) => {
     }
 };
 
+
+const addResidentMember = async (req, res) => {
+    const { MaCanHo, MaNguoiDung, VaiTroCuTru, TuNgay, DenNgay } = req.body;
+    
+    // Kiểm tra đầu vào
+    if (!MaCanHo || !MaNguoiDung || !VaiTroCuTru || !TuNgay) {
+        return res.status(400).send('Thiếu thông tin bắt buộc: MaCanHo, MaNguoiDung, VaiTroCuTru, TuNgay.');
+    }
+
+    try {
+        const pool = req.pool;
+        
+        // ⭐  KIỂM TRA TRẠNG THÁI CĂN HỘ (NGĂN THÊM VÀO CĂN HỘ TRỐNG) ⭐
+        const checkStatusQuery = `
+            SELECT MaTrangThai FROM dbo.CanHo WHERE MaCanHo = @MaCanHo
+        `;
+        const statusResult = await pool.request()
+            .input('MaCanHo', mssql.Int, MaCanHo)
+            .query(checkStatusQuery);
+
+        const apartmentStatusId = statusResult.recordset[0]?.MaTrangThai;
+        // Giả định MaTrangThai = 8 là "Trống"
+        if (apartmentStatusId === 8) { 
+             return res.status(400).send('Không thể thêm cư dân. Căn hộ đang ở trạng thái "Trống" và chưa có chủ sở hữu hợp pháp.');
+        }
+        if (apartmentStatusId === undefined) {
+             return res.status(404).send('Không tìm thấy căn hộ này.');
+        }
+
+
+        // 1. KIỂM TRA GIỚI HẠN TRƯỚC KHI THÊM (Logic hiện tại đã có)
+        const limitCheck = await checkResidentLimit(pool, MaCanHo);
+        
+        if (!limitCheck.canAdd) {
+            return res.status(400).json({ 
+                message: limitCheck.message,
+                limitDetails: { 
+                    max: limitCheck.maxLimit, 
+                    current: limitCheck.current 
+                }
+            });
+        }
+        
+        // 2. THỰC HIỆN INSERT VÀO LỊCH SỬ CƯ TRÚ
+        const request = pool.request();
+        const result = await request
+            .input('MaCanHo', mssql.Int, MaCanHo)
+            .input('MaNguoiDung', mssql.Int, MaNguoiDung)
+            .input('VaiTroCuTru', mssql.NVarChar, VaiTroCuTru)
+            .input('TuNgay', mssql.Date, TuNgay)
+            .input('DenNgay', mssql.Date, DenNgay || null) 
+            .query(`
+                INSERT INTO dbo.LichSuCuTru (MaCanHo, MaNguoiDung, VaiTroCuTru, TuNgay, DenNgay)
+                OUTPUT Inserted.*
+                VALUES (@MaCanHo, @MaNguoiDung, @VaiTroCuTru, @TuNgay, @DenNgay)
+            `);
+
+        res.status(201).json({ 
+            message: 'Thêm cư dân thành công vào Lịch sử Cư trú.', 
+            newRecord: result.recordset[0] 
+        });
+
+    } catch (err) {
+        console.error('Lỗi ADD RESIDENT MEMBER:', err);
+        if (err.number === 2627) {
+             return res.status(400).send('Cư dân này đã có lịch sử cư trú hiện tại tại căn hộ này.');
+        }
+        res.status(500).send(err.message);
+    }
+};
+// ... (Đảm bảo hàm này được export trong module.exports)
+
 module.exports = {
     getAllLichSuCuTru,
     getLichSuCuTruById,
     createLichSuCuTru,
     updateLichSuCuTru,
-    deleteLichSuCuTru
+    deleteLichSuCuTru,
+    addResidentMember // ⭐ EXPORT HÀM MỚI ⭐
 };

@@ -7,12 +7,13 @@ import AppointmentForm from '../components/AppointmentForm';
 
 // 1. IMPORT USEAUTH
 import { useAuth } from '../context/AuthContext'; 
-
+import { useNavigate } from 'react-router-dom';
 const API_URL = 'http://localhost:5000/'; 
 
 function ApartmentShowcasePage() {
   // 2. LẤY USER HIỆN TẠI
   const { user } = useAuth(); 
+  const navigate = useNavigate();
 
   const [apartments, setApartments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,7 +29,16 @@ function ApartmentShowcasePage() {
     loadApartments();
     loadUsers();
   }, []);
+  
+  const isStaff = user && (user.role === 'Quản lý' || user.role === 'Admin' || user.role === 'Nhân viên');
 
+  const formatCurrency = (value) => {
+    if (!value) return '0 đ';
+    // Chuyển đổi chuỗi thành số trước khi format, đề phòng giá trị từ DB là string
+    const numericValue = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(numericValue)) return '0 đ';
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numericValue);
+  };
   const loadApartments = async () => {
     try {
       const data = await apartmentService.getAll();
@@ -167,7 +177,23 @@ function ApartmentShowcasePage() {
                   <p><strong>📐 Diện tích:</strong> {selectedApartment.DienTich} m²</p>
                   <p><strong>⚡ Trạng thái:</strong> {selectedApartment.TenTrangThai}</p>
               </div>
-
+               {isStaff && (
+                  <div style={{ marginTop: '20px', borderTop: '1px dashed #ddd', paddingTop: '15px' }}>
+                      <button 
+                          onClick={() => navigate(`/staff/apartments/${selectedApartment.MaCanHo}`)}
+                          style={{ 
+                              width: '100%', 
+                              padding: '10px', 
+                              background: '#f39c12', 
+                              color: 'white', 
+                              fontWeight: 'bold',
+                              borderRadius: '6px'
+                          }}
+                      >
+                          ⚙️ Mở Trang Quản Lý Vận Hành
+                      </button>
+                  </div>
+              )}
     <div style={{ marginTop: '30px' }}>
                  {/* 1. TRƯỜNG HỢP CĂN HỘ CHƯA CÓ CHỦ SỞ HỮU (TRỐNG) */}
                  {selectedApartment.TenTrangThai === 'Trống' ? (
@@ -183,6 +209,13 @@ function ApartmentShowcasePage() {
                  ) : (selectedApartment.TenTrangThai !== 'Trống' && selectedApartment.IsAvailableForRent === true) ? (
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        
+                        <div style={{ padding: '15px', border: '1px solid #ffcc00', borderRadius: '8px', background: '#fffbeb' }}>
+                           <h4 style={{ margin: '0 0 5px 0', color: '#856404' }}>Thông tin niêm yết</h4>
+                           <p style={{ margin: 0, fontWeight: 'bold' }}>💰 Giá thuê: {formatCurrency(selectedApartment.RentPrice)}</p>
+                           <p style={{ margin: '5px 0 0 0', fontStyle: 'italic', fontSize: '0.9em' }}>Mô tả: {selectedApartment.ListingDescription || 'Chưa có mô tả chi tiết.'}</p>
+                        </div>
+
                         <p style={{ fontWeight: 'bold', margin: '0 0 5px 0' }}>
                             Chủ căn hộ: {selectedApartment.TenBenB}
                         </p>

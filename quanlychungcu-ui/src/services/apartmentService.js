@@ -1,8 +1,8 @@
-// src/services/apartmentService.js
+// src/services/apartmentService.js (PHIÊN BẢN HOÀN THIỆN MODULE LISTING)
 import api from './api';
 
 // --- CÁC HÀM CŨ ---
-const getAllApartments = async () => {
+const getAll = async () => {
   try {
     const response = await api.get('/canho');
     return response.data;
@@ -65,26 +65,51 @@ const importExcel = async (formData) => {
 };
 
 
-// --- BỔ SUNG: HÀM TOGGLE RENT STATUS ---
+// --- BỔ SUNG: HÀM TOGGLE RENT STATUS (Giữ nguyên) ---
 const toggleRentStatus = async (id) => {
   try {
     // Gọi API PUT /canho/toggle-rent/:id
     const response = await api.put(`/canho/toggle-rent/${id}`);
     return response.data;
   } catch (error) {
-    console.error(`Lỗi khi toggle trạng thái thuê căn hộ ${id}:`, error.response || error);
+    console.error(`Lỗi khi toggle trạng thái thuê căn...`, error.response || error);
     throw error;
   }
 };
 
 
+// ⭐ BỔ SUNG: HÀM UPDATE LISTING MỚI ⭐
+const updateListing = async (id, listingData) => {
+  try {
+    // Gọi API PUT /canho/listing/:id
+    const response = await api.put(`/canho/listing/${id}`, listingData);
+    return response.data;
+  } catch (error) {
+    console.error(`Lỗi khi cập nhật listing ${id}:`, error.response?.data || error);
+    throw error;
+  }
+};
+
+const getApartmentDetailsForStaff = async (id) => {
+  try {
+    // Gọi API đã tạo ở Bước 2
+    const response = await api.get(`/canho/details/${id}`); 
+    return response.data;
+  } catch (error) {
+    console.error(`Lỗi khi lấy chi tiết căn hộ ${id} cho Staff:`, error.response || error);
+    throw error;
+  }
+};
+
+// --- EXPORT TẤT CẢ CÁC HÀM ---
 export const apartmentService = {
-  getAll: getAllApartments,
-  getById: getApartmentById,
-  create: createApartment,
-  update: updateApartment,
-  delete: deleteApartment,
-  importExcel: importExcel,
-  // --- QUAN TRỌNG: EXPORT HÀM NÀY ---
-  toggleRentStatus: toggleRentStatus, 
+  getAll,
+  getApartmentById,
+  deleteApartment,
+  createApartment,
+  updateApartment,
+  importExcel,
+  toggleRentStatus,
+  updateListing,
+  getApartmentDetailsForStaff // ⭐ EXPORT HÀM MỚI
 };

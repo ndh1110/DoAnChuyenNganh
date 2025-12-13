@@ -165,40 +165,41 @@ const createLichSuCuTru = async (req, res) => {
  * (Thường là để cập nhật DenNgay khi chuyển đi, hoặc sửa VaiTroCuTru)
  */
 const updateLichSuCuTru = async (req, res) => {
+    const { id } = req.params; // MaLichSu
+    const { MaNguoiDung, MaCanHo, TuNgay, DenNgay, VaiTroCuTru } = req.body;
+
+    if (!MaNguoiDung || !MaCanHo || !TuNgay || !VaiTroCuTru) {
+        return res.status(400).send('Thiếu thông tin bắt buộc.');
+    }
+
     try {
-        const { id } = req.params;
         const pool = req.pool;
 
-        const oldDataResult = await pool.request()
-            .input('MaLichSu', mssql.Int, id)
-            .query('SELECT * FROM dbo.LichSuCuTru WHERE MaLichSu = @MaLichSu');
-
-        if (oldDataResult.recordset.length === 0) {
-            return res.status(404).send('Không tìm thấy bản ghi lịch sử để cập nhật');
+        // Kiểm tra logic Gia hạn: DenNgay mới không được nằm trong quá khứ so với ngày hiện tại (trừ khi là null)
+        if (DenNgay && new Date(DenNgay) < new Date(new Date().toDateString())) {
+            return res.status(400).send('Ngày kết thúc không được nằm trong quá khứ.');
         }
-        const oldData = oldDataResult.recordset[0];
-
-        // Trộn dữ liệu
-        const { MaNguoiDung, MaCanHo, TuNgay, DenNgay, VaiTroCuTru } = req.body;
-        const newMaNguoiDung = MaNguoiDung !== undefined ? MaNguoiDung : oldData.MaNguoiDung;
-        const newMaCanHo = MaCanHo !== undefined ? MaCanHo : oldData.MaCanHo;
-        const newTuNgay = TuNgay !== undefined ? TuNgay : oldData.TuNgay;
-        const newDenNgay = DenNgay !== undefined ? DenNgay : oldData.DenNgay;
-        const newVaiTroCuTru = VaiTroCuTru !== undefined ? VaiTroCuTru : oldData.VaiTroCuTru;
 
         const result = await pool.request()
             .input('MaLichSu', mssql.Int, id)
-            .input('MaNguoiDung', mssql.Int, newMaNguoiDung)
-            .input('MaCanHo', mssql.Int, newMaCanHo)
-            .input('TuNgay', mssql.Date, newTuNgay)
-            .input('DenNgay', mssql.Date, newDenNgay)
-            .input('VaiTroCuTru', mssql.NVarChar, newVaiTroCuTru)
-            .query(`UPDATE dbo.LichSuCuTru 
-                    SET MaNguoiDung = @MaNguoiDung, MaCanHo = @MaCanHo, TuNgay = @TuNgay,
-                        DenNgay = @DenNgay, VaiTroCuTru = @VaiTroCuTru
-                    OUTPUT Inserted.* WHERE MaLichSu = @MaLichSu`);
+            .input('MaNguoiDung', mssql.Int, MaNguoiDung)
+            .input('MaCanHo', mssql.Int, MaCanHo)
+            .input('TuNgay', mssql.Date, TuNgay)
+            // Chuyển DenNgay thành NULL nếu nó là chuỗi rỗng hoặc undefined để reset vô thời hạn
+            .input('DenNgay', mssql.Date, DenNgay || null)
+            .input('VaiTroCuTru', mssql.NVarChar, VaiTroCuTru)
+            .query(`
+                UPDATE dbo.LichSuCuTru 
+                SET MaNguoiDung = @MaNguoiDung, MaCanHo = @MaCanHo, TuNgay = @TuNgay,
+                    DenNgay = @DenNgay, VaiTroCuTru = @VaiTroCuTru
+                OUTPUT Inserted.* WHERE MaLichSu = @MaLichSu
+            `);
         
-        res.json(result.recordset[0]);
+        if (result.recordset.length === 0) {
+            return res.status(404).send('Không tìm thấy bản ghi cần cập nhật.');
+        }
+
+        res.json({ message: 'Cập nhật lịch sử cư trú thành công.', data: result.recordset[0] });
     } catch (err) {
         console.error('Lỗi PUT LichSuCuTru:', err);
         if (err.number === 547) {
@@ -208,6 +209,56 @@ const updateLichSuCuTru = async (req, res) => {
     }
 };
 
+/**
+ * PUT /api/lichsucutru/end/:id
+ * Kết thúc cư trú (Soft Delete - Dùng để đánh dấu cư dân chuyển đi)
+ */
+const endResidency = async (req, res) => {
+    try {
+        const { id } = req.params; // MaLichSu
+        const pool = req.pool;
+
+        // 1. KIỂM TRA VAI TRÒ CƯ DÂN TRƯỚC
+        const checkRoleQuery = `
+            SELECT VaiTroCuTru FROM dbo.LichSuCuTru WHERE MaLichSu = @MaLichSu
+        `;
+        const roleResult = await pool.request()
+            .input('MaLichSu', mssql.Int, id)
+            .query(checkRoleQuery);
+
+        if (roleResult.recordset.length === 0) {
+            return res.status(404).send('Không tìm thấy bản ghi cư trú này.');
+        }
+
+        const currentRole = roleResult.recordset[0].VaiTroCuTru;
+
+        // ⭐ LƯỠNG PHÂN: Nếu là Chủ hộ, CHẶN THAO TÁC ⭐
+        if (currentRole.includes('Chủ hộ')) {
+            return res.status(400).send('Không thể kết thúc cư trú. Cư dân này là Chủ hộ, cần thực hiện chuyển nhượng/bán căn hộ thông qua Hợp đồng để thay đổi trạng thái cư trú.');
+        }
+        
+        // 2. THỰC HIỆN CẬP NHẬT DenNgay (Soft Delete)
+        const result = await pool.request()
+            .input('MaLichSu', mssql.Int, id)
+            .input('NgayKetThuc', mssql.Date, new Date().toDateString())
+            .query(`
+                UPDATE dbo.LichSuCuTru 
+                SET DenNgay = @NgayKetThuc 
+                OUTPUT Inserted.*
+                WHERE MaLichSu = @MaLichSu
+            `);
+        
+        if (result.recordset.length === 0) {
+            return res.status(500).send('Cập nhật thất bại sau khi kiểm tra vai trò.');
+        }
+        
+        res.json({ message: 'Đã xác nhận cư dân chuyển đi (Kết thúc cư trú).', data: result.recordset[0] });
+    } catch (err) {
+        // AxiosError có thể do lỗi 500 ở đây
+        console.error('Lỗi Backend khi kết thúc cư trú:', err); 
+        res.status(500).send(err.message);
+    }
+};
 /**
  * DELETE /api/lichsucutru/:id - Xóa bản ghi lịch sử
  */
@@ -240,7 +291,7 @@ const addResidentMember = async (req, res) => {
     try {
         const pool = req.pool;
         
-        // ⭐  KIỂM TRA TRẠNG THÁI CĂN HỘ (NGĂN THÊM VÀO CĂN HỘ TRỐNG) ⭐
+        //  KIỂM TRA TRẠNG THÁI CĂN HỘ (NGĂN THÊM VÀO CĂN HỘ TRỐNG) ⭐
         const checkStatusQuery = `
             SELECT MaTrangThai FROM dbo.CanHo WHERE MaCanHo = @MaCanHo
         `;
@@ -298,7 +349,6 @@ const addResidentMember = async (req, res) => {
         res.status(500).send(err.message);
     }
 };
-// ... (Đảm bảo hàm này được export trong module.exports)
 
 module.exports = {
     getAllLichSuCuTru,
@@ -306,5 +356,6 @@ module.exports = {
     createLichSuCuTru,
     updateLichSuCuTru,
     deleteLichSuCuTru,
-    addResidentMember // ⭐ EXPORT HÀM MỚI ⭐
+    addResidentMember,
+    endResidency, // ⭐ EXPORT HÀM MỚI ⭐
 };

@@ -13,6 +13,7 @@ router.use(authorize('Quản lý', 'Nhân viên'));
 router.post('/', lichSuCuTruController.createLichSuCuTru);
 router.put('/:id', lichSuCuTruController.updateLichSuCuTru);
 router.delete('/:id', lichSuCuTruController.deleteLichSuCuTru);
+router.put('/end/:id', lichSuCuTruController.endResidency);
 
 
 // ⭐ ROUTE THÊM THÀNH VIÊN MỚI (CÓ KIỂM TRA GIỚI HẠN) ⭐

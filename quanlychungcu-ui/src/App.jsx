@@ -13,7 +13,6 @@ import AIChatbox from "./components/AIChatbox";
 // 2. IMPORT CÁC COMPONENT VÀ TRANG (Giữ nguyên)
 import ApartmentDetailPage from "./pages/ApartmentDetailPage";
 import MyApartmentPage from "./pages/MyApartmentPage";
-import ApartmentShowcasePage from "./pages/ApartmentShowcasePage";
 import ProfilePage from './pages/ProfilePage';
 import DashboardPage from "./pages/DashboardPage"; 
 import Navbar from "./components/Navbar";

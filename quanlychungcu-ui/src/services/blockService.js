@@ -73,6 +73,18 @@ const blockService = {
     // Endpoint: GET /api/canho/:id/info
     const response = await api.get(`/canho/${id}/info`);
     return response.data;
+  },
+  getMyApartment: async () => {
+    // Gọi API lấy căn hộ của chính user này
+    const response = await api.get('/canho/me'); 
+    return response.data;
+  },
+
+  // 2. Thêm cư dân vào căn hộ (Cho trang AddResidentForm)
+  addResident: async (data) => {
+    // data: { MaCanHo, HoTen, SoDienThoai... }
+    const response = await api.post('/cu-dan', data);
+    return response.data;
   }
 };
 

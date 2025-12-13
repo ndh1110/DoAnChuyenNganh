@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { contractService } from '../services/contractService'; 
-import { apartmentService } from '../services/apartmentService'; 
+import { blockService } from "../services/blockService";
 import { useAuth } from '../context/AuthContext';
 
 const API_URL = 'http://localhost:5000/'; 
@@ -138,7 +138,7 @@ const MyApartmentPage = () => {
   const handleUpdateListing = async (aptId, formData) => {
       try {
           // ⭐ FIX: Lấy dữ liệu CĂN HỘ đã UPDATE từ response ⭐
-          const response = await apartmentService.updateListing(aptId, formData);
+          const response = await blockService.updateApartment(aptId, formData);
           // Backend trả về: { message, updatedApartment: { RentPrice, ListingDescription, ... } }
           const updatedApartmentData = response.updatedApartment; 
 

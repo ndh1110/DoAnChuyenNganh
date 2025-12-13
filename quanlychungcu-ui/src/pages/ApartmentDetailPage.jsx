@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { apartmentService } from '../services/apartmentService';
+import { blockService } from "../services/blockService";
 import AddResidentForm from '../components/AddResidentForm'; 
 import toast, { Toaster } from 'react-hot-toast';
 import api from '../services/api'; 
@@ -202,7 +202,7 @@ function ApartmentDetailPage() {
     const fetchApartmentDetails = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await apartmentService.getApartmentDetailsForStaff(apartmentId);
+            const data = await blockService.getApartmentInfo(apartmentId);
             setApartmentDetails(data);
             setError(null);
         } catch (err) {

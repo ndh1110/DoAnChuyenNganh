@@ -18,7 +18,7 @@ const NavItem = ({ to, label }) => (
   </NavLink>
 );
 
-// Component Dropdown Menu (Giữ nguyên)
+// Component Dropdown Menu
 const DropdownMenu = ({ title, items }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -82,48 +82,34 @@ export default function Navbar() {
 
   if (!isLoggedIn) return null;
 
-  const MANAGEMENT_ROLES = ['Quản lý', 'Admin', 'Nhân viên', 'Kỹ thuật'];
-  const canManage = MANAGEMENT_ROLES.includes(user?.role);
-  const isResident = user?.role === 'Resident'; // ⭐ KIỂM TRA ROLE RESIDENT
+  const canManage = ['Quản lý', 'Admin', 'Nhân viên', 'Kỹ thuật'].includes(user?.role);
+  const isResident = user?.role === 'Resident';
   const isAdmin = ['Quản lý', 'Admin'].includes(user?.role);
 
   return (
     <nav className="bg-white/90 backdrop-blur-md sticky top-0 z-40 border-b border-gray-200 shadow-sm">
       <div className="container mx-auto px-6 h-16 flex items-center justify-between">
         
-        {/* LOGO (Giữ nguyên) */}
+        {/* LOGO */}
         <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate('/')}>
-           <div className="w-10 h-10 bg-gradient-to-br from-slate-800 to-black rounded-xl flex items-center justify-center text-white font-serif font-bold text-xl shadow-lg border border-slate-600 group-hover:scale-105 transition-transform">
-             G
-           </div>
+           <div className="w-10 h-10 bg-gradient-to-br from-slate-800 to-black rounded-xl flex items-center justify-center text-white font-serif font-bold text-xl shadow-lg border border-slate-600 group-hover:scale-105 transition-transform">G</div>
            <div className="hidden md:flex flex-col">
-             <span className="text-lg font-bold text-slate-800 leading-none tracking-tight">
-               GRAND HORIZON
-             </span>
-             <span className="text-[10px] text-slate-500 uppercase tracking-widest font-medium">
-               Premium Residence
-             </span>
+             <span className="text-lg font-bold text-slate-800 leading-none tracking-tight">GRAND HORIZON</span>
+             <span className="text-[10px] text-slate-500 uppercase tracking-widest font-medium">Premium Residence</span>
            </div>
         </div>
 
-        {/* MENU CHÍNH */}
+        {/* MENU CHÍNH - ĐÃ SỬA GỌN GÀNG */}
         <div className="hidden md:flex items-center gap-1">
           
-          {/* ⭐ MỤC MỚI: TÀI SẢN CỦA TÔI (CHỈ RESIDENT) ⭐ */}
-          {isResident && (
-              <NavItem to="/my-apartment" label="Căn hộ của tôi" />
-          )}
+          {/* Menu cho Resident */}
+          {isResident && <NavItem to="/my-apartment" label="Căn hộ của tôi" />}
 
-          <DropdownMenu 
-            title="Dự án" 
-            items={[
-              { to: '/blocks', label: 'Khu tòa nhà (Blocks)' },
-              { to: '/floors', label: 'Danh sách Tầng' },
-              { to: '/apartments', label: 'Tra cứu Căn hộ' },
-              { to: '/showcase', label: 'Thông tin căn hộ ' },
-            ]} 
-          />
+          {/* Menu cho Quản lý: Tách Dropdown cũ thành 2 mục rõ ràng */}
+          <NavItem to="/blocks" label="🏢 Sơ đồ Tòa nhà" />
+          <NavItem to="/apartments" label="🔍 Tra cứu Căn hộ" />
 
+          {/* Các mục khác giữ nguyên */}
           <DropdownMenu 
             title="Dịch vụ" 
             items={[
@@ -148,31 +134,19 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* USER & LOGOUT (Giữ nguyên) */}
+        {/* USER INFO & LOGOUT (Giữ nguyên) */}
         <div className="flex items-center gap-3">
-          <NavLink 
-            to="/profile" 
-            className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:bg-gray-100 px-3 py-1.5 rounded-full transition-colors"
-          >
+          <NavLink to="/profile" className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:bg-gray-100 px-3 py-1.5 rounded-full transition-colors">
             <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs border border-blue-200">
-              {(user.HoTen || user.name || user.email || "U").charAt(0).toUpperCase()}
+              {(user.HoTen || user.name || "U").charAt(0).toUpperCase()}
             </div>
             <div className="hidden lg:block text-right leading-tight">
-               <div className="font-bold text-xs text-gray-900">
-                  {user.HoTen || user.name || user.email || "Người dùng"}
-                </div>
+               <div className="font-bold text-xs text-gray-900">{user.HoTen || user.name}</div>
                <div className="text-[10px] text-gray-500 uppercase tracking-wider">{user.role}</div>
             </div>
           </NavLink>
-
-          <button 
-            onClick={handleLogout}
-            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all"
-            title="Đăng xuất"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
+          <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all" title="Đăng xuất">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
           </button>
         </div>
 

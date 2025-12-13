@@ -19,11 +19,17 @@ const getAllHopDong = async (req, res) => {
                 -- Bên A (Chủ nhà - BenA_Id mới)
                 ndA.MaNguoiDung AS BenA_Id, ndA.HoTen AS TenBenA,
 
-                ch.MaCanHo, ch.SoCanHo, b.TenBlock
+                ch.MaCanHo, ch.SoCanHo, b.TenBlock,
+                
+                -- ⭐ BỔ SUNG FIX: CÁC CỘT LISTING MỚI TỪ BẢNG CanHo ⭐
+                ch.IsAvailableForRent,
+                ch.RentPrice,
+                ch.ListingDescription
+                
             FROM dbo.HopDong hd
             LEFT JOIN dbo.NguoiDung ndB ON hd.BenB_Id = ndB.MaNguoiDung 
             LEFT JOIN dbo.NguoiDung ndA ON hd.BenA_Id = ndA.MaNguoiDung 
-            JOIN dbo.CanHo ch ON hd.MaCanHo = ch.MaCanHo
+            JOIN dbo.CanHo ch ON hd.MaCanHo = ch.MaCanHo -- Dùng JOIN này để truy cập ch.*
             JOIN dbo.Tang t ON ch.MaTang = t.MaTang
             JOIN dbo.Block b ON t.MaBlock = b.MaBlock
         `;
@@ -41,9 +47,11 @@ const getAllHopDong = async (req, res) => {
         const result = await request.query(query);
         res.json(result.recordset);
     } catch (err) {
-        console.error(err); res.status(500).send(err.message);
+        console.error('Lỗi GET all HopDong:', err); 
+        res.status(500).send(err.message);
     }
 };
+
 
 // GET BY ID
 const getHopDongById = async (req, res) => {
@@ -71,7 +79,8 @@ const getHopDongById = async (req, res) => {
     }
 };
 
-// CREATE (Transaction: Hợp đồng + Điều khoản)
+// controllers/hopDongController.js (Chỉ hàm createHopDong)
+
 const createHopDong = async (req, res) => {
     const transaction = new mssql.Transaction(req.pool);
     try {
@@ -123,6 +132,42 @@ const createHopDong = async (req, res) => {
                     .query(`INSERT INTO dbo.DieuKhoan (MaHopDong, NoiDung) VALUES (@MaHopDong, @NoiDung)`);
             }
         }
+        
+        // 3. CẬP NHẬT TRẠNG THÁI CĂN HỘ
+        let newApartmentStatusId;
+        let VaiTroCuTru = null;
+        
+        if (Loai === 'Mua/Bán') {
+            newApartmentStatusId = 9; // Đã bán/Sở hữu
+            VaiTroCuTru = 'Chủ hộ'; 
+        } else if (Loai === 'Cho Thuê') {
+            newApartmentStatusId = 10; // Đang cho thuê
+            VaiTroCuTru = 'Cư dân thuê'; 
+        }
+
+        if (newApartmentStatusId) {
+            const requestCH = new mssql.Request(transaction);
+            await requestCH
+                .input('MaCanHo', mssql.Int, MaCanHo)
+                .input('MaTrangThaiMoi', mssql.Int, newApartmentStatusId)
+                .query(`UPDATE dbo.CanHo SET MaTrangThai = @MaTrangThaiMoi WHERE MaCanHo = @MaCanHo`);
+        }
+        
+        // ⭐ FIX 2: GHI LỊCH SỬ CƯ TRÚ (Mặc định Chủ/Thuê là cư dân đầu tiên) ⭐
+        if (VaiTroCuTru) { 
+            const requestLSCuTru = new mssql.Request(transaction);
+            await requestLSCuTru
+                .input('MaNguoiDung', mssql.Int, BenB_Id) 
+                .input('MaCanHo', mssql.Int, MaCanHo) 
+                .input('VaiTroCuTru', mssql.NVarChar, VaiTroCuTru) 
+                .input('TuNgay', mssql.Date, NgayKy) 
+                .input('DenNgay', mssql.Date, NgayHetHan) 
+                .query(`
+                    INSERT INTO dbo.LichSuCuTru (MaNguoiDung, MaCanHo, VaiTroCuTru, TuNgay, DenNgay)
+                    VALUES (@MaNguoiDung, @MaCanHo, @VaiTroCuTru, @TuNgay, @DenNgay)
+                `);
+        }
+
 
         // =============================================
         // ⭐ 3. CẬP NHẬT TRẠNG THÁI CĂN HỘ (Code Mới)
@@ -146,16 +191,15 @@ const createHopDong = async (req, res) => {
             .query('UPDATE dbo.CanHo SET MaTrangThai = @MaTrangThai WHERE MaCanHo = @MaCanHo');
 
         await transaction.commit();
-        res.status(201).json({ message: 'Tạo Hợp đồng thành công & Đã cập nhật trạng thái căn hộ', MaHopDong: newMaHopDong });
+        res.status(201).json({ message: 'Tạo Hợp đồng thành công', MaHopDong: newMaHopDong });
 
     } catch (err) {
         if (transaction.active) await transaction.rollback();
-        console.error(err);
+        console.error('Lỗi khi tạo Hợp đồng:', err);
         if (err.number === 547) return res.status(400).send('Lỗi dữ liệu không tồn tại.');
         res.status(500).send(err.message);
     }
 };
-
 // UPDATE
 const updateHopDong = async (req, res) => {
     try {

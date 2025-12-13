@@ -2,8 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const canHoController = require('../controllers/canHoController');
-const { authorize } = require('../middleware/authMiddleware');
-
+const { protect, authorize } = require('../middleware/authMiddleware');
 // 1. Import Multer và Path
 const multer = require('multer');
 const path = require('path');
@@ -42,7 +41,14 @@ const uploadExcel = multer({ storage: multer.memoryStorage() }); // Giữ lại 
 // GET (Ai cũng xem được)
 router.get('/', canHoController.getAllCanHo);
 router.get('/:id', canHoController.getCanHoById);
+<<<<<<< HEAD
 router.get('/:id/info', canHoController.getCanHoInfo);
+=======
+router.put('/toggle-rent/:id', protect, canHoController.toggleRentStatus);
+router.put('/listing/:id', protect, canHoController.updateListing);
+
+router.get('/details/:id', protect, authorize('Quản lý', 'Admin', 'Nhân viên'), canHoController.getApartmentDetailsForStaff);
+>>>>>>> origin/Vam
 
 // POST/PUT/DELETE (Chỉ Quản lý)
 router.use(authorize('Quản lý', 'Admin'));

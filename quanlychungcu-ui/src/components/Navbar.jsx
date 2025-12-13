@@ -18,10 +18,10 @@ const NavItem = ({ to, label }) => (
   </NavLink>
 );
 
-// Component Dropdown Menu
+// Component Dropdown Menu (Giữ nguyên)
 const DropdownMenu = ({ title, items }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null); 
+  const dropdownRef = useRef(null);
 
   const toggleDropdown = () => setIsOpen(!isOpen);
 
@@ -84,13 +84,14 @@ export default function Navbar() {
 
   const MANAGEMENT_ROLES = ['Quản lý', 'Admin', 'Nhân viên', 'Kỹ thuật'];
   const canManage = MANAGEMENT_ROLES.includes(user?.role);
+  const isResident = user?.role === 'Resident'; // ⭐ KIỂM TRA ROLE RESIDENT
   const isAdmin = ['Quản lý', 'Admin'].includes(user?.role);
 
   return (
     <nav className="bg-white/90 backdrop-blur-md sticky top-0 z-40 border-b border-gray-200 shadow-sm">
       <div className="container mx-auto px-6 h-16 flex items-center justify-between">
         
-        {/* LOGO */}
+        {/* LOGO (Giữ nguyên) */}
         <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate('/')}>
            <div className="w-10 h-10 bg-gradient-to-br from-slate-800 to-black rounded-xl flex items-center justify-center text-white font-serif font-bold text-xl shadow-lg border border-slate-600 group-hover:scale-105 transition-transform">
              G
@@ -108,8 +109,20 @@ export default function Navbar() {
         {/* MENU CHÍNH */}
         <div className="hidden md:flex items-center gap-1">
           
-          {/* MENU DỰ ÁN: Đã làm gọn */}
-          <NavItem to="/blocks" label="🏢 Cấu trúc Tòa nhà" />
+          {/* ⭐ MỤC MỚI: TÀI SẢN CỦA TÔI (CHỈ RESIDENT) ⭐ */}
+          {isResident && (
+              <NavItem to="/my-apartment" label="Căn hộ của tôi" />
+          )}
+
+          <DropdownMenu 
+            title="Dự án" 
+            items={[
+              { to: '/blocks', label: 'Khu tòa nhà (Blocks)' },
+              { to: '/floors', label: 'Danh sách Tầng' },
+              { to: '/apartments', label: 'Tra cứu Căn hộ' },
+              { to: '/showcase', label: 'Thông tin căn hộ ' },
+            ]} 
+          />
 
           <DropdownMenu 
             title="Dịch vụ" 
@@ -135,7 +148,7 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* USER INFO */}
+        {/* USER & LOGOUT (Giữ nguyên) */}
         <div className="flex items-center gap-3">
           <NavLink 
             to="/profile" 

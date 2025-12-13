@@ -2,10 +2,22 @@
 const mssql = require('mssql');
 const xlsx = require('xlsx');
 
+const RESIDENT_LIMITS = {
+    'Studio': 2, '1PN': 3, '2PN': 5, '3PN': 7, 'default': 4
+};
+const getLimitByApartmentType = (loaiCanHo) => {
+    const key = String(loaiCanHo || '').trim().toUpperCase();
+    if (key.includes('1PN')) return RESIDENT_LIMITS['1PN'];
+    if (key.includes('2PN')) return RESIDENT_LIMITS['2PN'];
+    if (key.includes('3PN')) return RESIDENT_LIMITS['3PN'];
+    if (key.includes('STUDIO')) return RESIDENT_LIMITS['Studio'];
+    return RESIDENT_LIMITS.default;
+};
 /**
  * GET /api/canho
  * Lấy danh sách căn hộ (Kèm cột HinhAnh và MauSac)
  */
+
 const getAllCanHo = async (req, res) => {
     try {
         const result = await req.pool.request()
@@ -18,11 +30,32 @@ const getAllCanHo = async (req, res) => {
                     b.MaBlock, b.TenBlock,
                     ch.MaTrangThai,
                     ISNULL(tt.Ten, 'N/A') AS TenTrangThai,
-                    tt.MauSac -- <--- THÊM: Màu sắc để vẽ badge
+                    tt.MauSac, -- (Giữ lại cái này của bạn để vẽ màu)
+
+                    -- (Giữ lại các cột mới của nhánh Vam)
+                    ch.IsAvailableForRent,
+                    ch.RentPrice,
+                    ch.ListingDescription,
+
+                    -- (Thông tin hợp đồng/người ở của nhánh Vam)
+                    hd.Loai AS LoaiHopDong,
+                    hd.NgayHetHan,
+                    ndB.HoTen AS TenBenB,
+                    ndB.SoDienThoai AS SDTBenB
+
                 FROM dbo.CanHo ch
                 JOIN dbo.Tang t ON ch.MaTang = t.MaTang
                 JOIN dbo.Block b ON t.MaBlock = b.MaBlock
                 LEFT JOIN dbo.TrangThai tt ON ch.MaTrangThai = tt.MaTrangThai
+                
+                OUTER APPLY (
+                    SELECT TOP 1 Loai, BenB_Id, NgayHetHan
+                    FROM dbo.HopDong
+                    WHERE MaCanHo = ch.MaCanHo
+                    ORDER BY NgayKy DESC
+                ) hd
+                LEFT JOIN dbo.NguoiDung ndB ON hd.BenB_Id = ndB.MaNguoiDung
+
                 ORDER BY b.TenBlock, t.SoTang, ch.SoCanHo
             `);
         res.json(result.recordset);
@@ -31,6 +64,8 @@ const getAllCanHo = async (req, res) => {
         res.status(500).send(err.message);
     }
 };
+
+
 
 /**
  * GET /api/canho/:id
@@ -178,10 +213,34 @@ const updateCanHo = async (req, res) => {
             return res.status(404).send('Không tìm thấy căn hộ để cập nhật');
         }
         const oldData = oldDataResult.recordset[0];
+        
+        // --- LOGIC KIỂM TRA TÍNH TOÀN VẸN DỮ LIỆU ---
+        const NEW_EMPTY_STATUS = 8; // Giả sử MaTrangThai = 8 là "Trống"
+        
+        // Nếu người dùng cố gắng đặt trạng thái thành TRỐNG (8) và MaTrangThai mới khác cũ
+        if (MaTrangThai !== undefined && parseInt(MaTrangThai) === NEW_EMPTY_STATUS && MaTrangThai !== oldData.MaTrangThai) {
+            
+            // Kiểm tra xem căn hộ có bất kỳ hợp đồng Mua/Bán hoặc Cho Thuê nào đang tồn tại không
+            const activeContractCheck = await pool.request()
+                .input('MaCanHo', mssql.Int, id)
+                .query(`
+                    SELECT TOP 1 MaHopDong 
+                    FROM dbo.HopDong 
+                    WHERE MaCanHo = @MaCanHo 
+                    AND (Loai = 'Mua/Bán' OR Loai = 'Cho Thuê')
+                    -- Có thể thêm điều kiện kiểm tra ngày hết hạn nếu cần thiết cho HĐ Thuê
+                `);
+
+            if (activeContractCheck.recordset.length > 0) {
+                return res.status(400).send('Không thể đặt trạng thái thành "Trống" (ID 8) vì căn hộ này đang có Hợp đồng Mua/Bán hoặc Cho Thuê có hiệu lực.');
+            }
+        }
+        // --------------------------------------------------
 
         const newSoCanHo = SoCanHo !== undefined ? SoCanHo : oldData.SoCanHo;
         const newMaTang = MaTang !== undefined ? MaTang : oldData.MaTang;
-        const newMaTrangThai = MaTrangThai !== undefined ? MaTrangThai : oldData.MaTrangThai;
+        // Sử dụng MaTrangThai mới đã qua kiểm tra
+        const newMaTrangThai = MaTrangThai !== undefined ? MaTrangThai : oldData.MaTrangThai; 
         const newLoaiCanHo = LoaiCanHo !== undefined ? LoaiCanHo : oldData.LoaiCanHo;
         const newDienTich = DienTich !== undefined ? DienTich : oldData.DienTich;
         const finalHinhAnh = newHinhAnhPath !== undefined ? newHinhAnhPath : oldData.HinhAnh;
@@ -350,6 +409,262 @@ const importFromExcel = async (req, res) => {
     }
 };
 
+const toggleRentStatus = async (req, res) => {
+    // 1. Lấy và chuẩn bị dữ liệu
+    const { id } = req.params; // MaCanHo
+    const userId = req.user.id || req.user.MaNguoiDung; 
+    const userRole = req.user.role;
+
+    // Ép kiểu tham số
+    const MaCanHo_Int = parseInt(id);
+    const UserId_Int = parseInt(userId);
+
+    if (isNaN(MaCanHo_Int) || isNaN(UserId_Int)) {
+        return res.status(400).send('Tham số ID hoặc User ID không hợp lệ.');
+    }
+
+    try {
+        const pool = req.pool;
+        const request = pool.request(); // Tạo request duy nhất để khai báo tham số
+
+        // KHAI BÁO BIẾN THAM SỐ SQL (Fix lỗi cú pháp: Msg 137)
+        request.input('MaCanHo', mssql.Int, MaCanHo_Int);
+        request.input('UserId', mssql.Int, UserId_Int); 
+
+        // BƯỚC 1: KIỂM TRA QUYỀN SỞ HỮU (Authorization)
+        if (userRole !== 'Quản lý' && userRole !== 'Admin') {
+            
+            // Truy vấn kiểm tra Hợp đồng Mua/Bán mới nhất mà user là BenB (Chủ sở hữu).
+            const checkOwnerQuery = `
+                SELECT TOP 1 hd.MaHopDong
+                FROM dbo.HopDong hd
+                WHERE hd.MaCanHo = @MaCanHo 
+                AND hd.Loai = 'Mua/Bán'
+                AND hd.BenB_Id = @UserId  
+                ORDER BY hd.NgayKy DESC
+            `;
+            
+            const ownerCheck = await request.query(checkOwnerQuery);
+            
+            if (ownerCheck.recordset.length === 0) {
+                // Trả về 403 Forbidden nếu không phải chủ sở hữu hợp pháp
+                return res.status(403).send(`Forbidden: Bạn không phải Chủ sở hữu HĐ Mua/Bán của căn hộ này.`);
+            }
+        }
+
+        // BƯỚC 2: ĐẢO NGƯỢC TRẠNG THÁI (Toggle)
+        const updateQuery = `
+            UPDATE dbo.CanHo
+            -- SỬA CUỐI CÙNG: Dùng phép toán 1 - X để đảm bảo đảo ngược giá trị BIT (0 thành 1, 1 thành 0)
+            SET IsAvailableForRent = 1 - COALESCE(IsAvailableForRent, 0) 
+            OUTPUT Inserted.IsAvailableForRent
+            WHERE MaCanHo = @MaCanHo
+        `;
+
+        // Chạy truy vấn UPDATE bằng request đã khai báo tham số
+        const result = await request.query(updateQuery); 
+
+        if (result.recordset.length === 0) {
+             return res.status(404).send('Không tìm thấy căn hộ để cập nhật trạng thái.');
+        }
+
+        const newStatus = result.recordset[0].IsAvailableForRent;
+        
+        // 3. Trả về kết quả thành công
+        res.json({ 
+            message: newStatus ? 'Đã bật chế độ cho thuê' : 'Đã tắt chế độ cho thuê',
+            isAvailable: newStatus
+        });
+
+    } catch (err) {
+        console.error('Lỗi TOGGLE RENT STATUS:', err);
+        res.status(500).send(err.message);
+    }
+};
+
+const updateListing = async (req, res) => {
+    const { id } = req.params; // MaCanHo
+    const { RentPrice, ListingDescription } = req.body;
+    
+    // Yêu cầu ít nhất một trường để cập nhật
+    if (RentPrice === undefined && ListingDescription === undefined) {
+        return res.status(400).send('Không có thông tin Listing nào được cung cấp để cập nhật.');
+    }
+
+    const userId = req.user.id || req.user.MaNguoiDung; 
+    const userRole = req.user.role;
+
+    const MaCanHo_Int = parseInt(id);
+    const UserId_Int = parseInt(userId);
+
+    if (isNaN(MaCanHo_Int) || isNaN(UserId_Int)) {
+        return res.status(400).send('Tham số ID hoặc User ID không hợp lệ.');
+    }
+
+    try {
+        const pool = req.pool;
+        const request = pool.request();
+        
+        request.input('MaCanHo', mssql.Int, MaCanHo_Int);
+        request.input('UserId', mssql.Int, UserId_Int); 
+        
+        // --- BƯỚC 1: KIỂM TRA QUYỀN SỞ HỮU ---
+        if (userRole !== 'Quản lý' && userRole !== 'Admin') {
+            const checkOwnerQuery = `
+                SELECT TOP 1 hd.MaHopDong
+                FROM dbo.HopDong hd
+                WHERE hd.MaCanHo = @MaCanHo 
+                AND hd.Loai = 'Mua/Bán'
+                AND hd.BenB_Id = @UserId
+                ORDER BY hd.NgayKy DESC
+            `;
+            
+            const ownerCheck = await request.query(checkOwnerQuery);
+            
+            if (ownerCheck.recordset.length === 0) {
+                return res.status(403).send(`Forbidden: Bạn không phải Chủ sở hữu hợp pháp của căn hộ này.`);
+            }
+        }
+        
+        // --- BƯỚC 2: TẠO TRUY VẤN UPDATE ĐỘNG VÀ KHAI BÁO BIẾN ---
+        let setClauses = [];
+        
+        if (RentPrice !== undefined) {
+            setClauses.push(`RentPrice = @RentPrice`);
+            
+            // ⭐ FIX LỖI ẨN: Ép kiểu và xử lý giá trị rỗng/zero an toàn ⭐
+            const rawPrice = String(RentPrice).trim();
+            let priceValue = null;
+            
+            if (rawPrice !== '') {
+                // Sử dụng Number() hoặc parseFloat() và kiểm tra NaN
+                const parsedPrice = parseFloat(rawPrice);
+                if (!isNaN(parsedPrice)) {
+                    priceValue = parsedPrice;
+                }
+            }
+            
+            // Input giá trị (sẽ là NULL nếu giá trị rỗng)
+            request.input('RentPrice', mssql.Decimal(18, 2), priceValue);
+        }
+
+        if (ListingDescription !== undefined) {
+            setClauses.push(`ListingDescription = @ListingDescription`);
+            // Xử lý mô tả rỗng để truyền thành NULL
+            const descValue = ListingDescription === '' || ListingDescription === null ? null : ListingDescription;
+            request.input('ListingDescription', mssql.NVarChar, descValue);
+        }
+        
+        const updateQuery = `
+            UPDATE dbo.CanHo
+            SET ${setClauses.join(', ')}
+            OUTPUT Inserted.*
+            WHERE MaCanHo = @MaCanHo
+        `;
+
+        const result = await request.query(updateQuery); 
+
+        if (result.recordset.length === 0) {
+             return res.status(404).send('Không tìm thấy căn hộ để cập nhật.');
+        }
+        
+        // 3. Trả về kết quả thành công
+        res.json({ 
+            message: 'Cập nhật thông tin Listing thành công',
+            updatedApartment: result.recordset[0]
+        });
+
+    } catch (err) {
+        console.error('Lỗi UPDATE LISTING:', err);
+        // Trả về lỗi chi tiết hơn nếu có thể
+        res.status(500).send(err.message || 'Lỗi server khi cập nhật Listing.');
+    }
+};
+
+const getApartmentDetailsForStaff = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const pool = req.pool;
+        const MaCanHo_Int = parseInt(id);
+
+        if (isNaN(MaCanHo_Int)) {
+            return res.status(400).send('Mã căn hộ không hợp lệ.');
+        }
+
+        // Query 1: Lấy thông tin chi tiết Căn hộ và Hợp đồng chính (mới nhất)
+        const apartmentQuery = `
+            SELECT 
+                ch.MaCanHo, ch.SoCanHo, ch.LoaiCanHo, ch.DienTich, ch.HinhAnh, 
+                ch.MaTrangThai, tt.Ten AS TenTrangThai, ch.IsAvailableForRent,
+                ch.RentPrice, ch.ListingDescription,
+                b.TenBlock, t.SoTang,
+                
+                -- Thông tin Chủ/Thuê chính
+                hd.MaHopDong, hd.Loai AS LoaiHopDong, hd.NgayKy, hd.NgayHetHan,
+                ndB.MaNguoiDung AS BenB_Id, ndB.HoTen AS TenChuHo, ndB.SoDienThoai AS SDTChuHo, ndB.Email AS EmailChuHo
+            FROM dbo.CanHo ch
+            JOIN dbo.TrangThai tt ON ch.MaTrangThai = tt.MaTrangThai
+            JOIN dbo.Tang t ON ch.MaTang = t.MaTang
+            JOIN dbo.Block b ON t.MaBlock = b.MaBlock
+            LEFT JOIN ( -- Lấy Hợp đồng đang hiệu lực MỚI NHẤT
+                SELECT TOP 1 * FROM dbo.HopDong 
+                WHERE MaCanHo = @MaCanHo AND (NgayHetHan IS NULL OR NgayHetHan >= GETDATE()) -- Dùng >= GETDATE()
+                ORDER BY NgayKy DESC, MaHopDong DESC
+            ) AS hd ON ch.MaCanHo = hd.MaCanHo
+            LEFT JOIN dbo.NguoiDung ndB ON hd.BenB_Id = ndB.MaNguoiDung
+            WHERE ch.MaCanHo = @MaCanHo;
+        `;
+        
+        const apartmentResult = await pool.request()
+            .input('MaCanHo', mssql.Int, MaCanHo_Int)
+            .query(apartmentQuery);
+        
+        if (apartmentResult.recordset.length === 0) {
+            return res.status(404).send('Không tìm thấy căn hộ.');
+        }
+
+        const apartmentDetails = apartmentResult.recordset[0];
+        
+        // Query 2: Lấy danh sách Cư dân đang Cư trú (Active Residents)
+        const residentQuery = `
+            SELECT 
+                ls.MaLichSu, ls.VaiTroCuTru, ls.TuNgay, ls.DenNgay,
+                nd.MaNguoiDung, nd.HoTen, nd.SoDienThoai, nd.Email
+            FROM dbo.LichSuCuTru ls
+            JOIN dbo.NguoiDung nd ON ls.MaNguoiDung = nd.MaNguoiDung
+            WHERE ls.MaCanHo = @MaCanHo
+            -- ⭐ FIX LỖI ĐẾM SỐ LƯỢNG: Đảm bảo lấy bản ghi còn hiệu lực (NULL hoặc >= ngày hiện tại) ⭐
+            AND (ls.DenNgay IS NULL OR ls.DenNgay >= GETDATE())
+            ORDER BY ls.VaiTroCuTru DESC, ls.TuNgay DESC;
+        `;
+
+        const residentResult = await pool.request()
+            .input('MaCanHo', mssql.Int, MaCanHo_Int)
+            .query(residentQuery);
+        
+        const activeResidents = residentResult.recordset;
+        
+        // Logic 3: Tính toán Giới hạn Cư trú
+        const maxLimit = getLimitByApartmentType(apartmentDetails.LoaiCanHo);
+        const currentCount = activeResidents.length; // Đếm số lượng dòng ACTIVE trả về
+
+        res.json({
+            ...apartmentDetails,
+            ActiveResidents: activeResidents,
+            ResidentLimit: {
+                Max: maxLimit,
+                Current: currentCount,
+                LoaiCanHo: apartmentDetails.LoaiCanHo
+            },
+        });
+
+    } catch (err) {
+        console.error('Lỗi GET Apartment Details For Staff:', err);
+        res.status(500).send(err.message);
+    }
+};
+
+// ... (đảm bảo hàm này được export trong module.exports)
 module.exports = {
     getAllCanHo,
     getCanHoById,
@@ -357,5 +672,9 @@ module.exports = {
     createCanHo,
     updateCanHo,
     deleteCanHo,
-    importFromExcel
+    importFromExcel,
+    toggleRentStatus,
+    updateListing,
+    getApartmentDetailsForStaff
+    
 };

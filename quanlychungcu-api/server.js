@@ -18,6 +18,7 @@ const vaiTroRoutes = require('./routes/vaiTro');
 const myRoutes = require('./routes/myRoutes.js');
 
 // (Các tuyến đường nghiệp vụ)
+const aiChatRoutes = require('./routes/aiChatRoutes');
 const nguoiDungRoutes = require('./routes/nguoiDung');
 const blockRoutes = require('./routes/block');
 const tangRoutes = require('./routes/tang');
@@ -119,6 +120,7 @@ app.use('/api/yeucaulog', protect, yeuCauLogRoutes);
 app.use('/api/lichhen', protect, lichHenRoutes);
 
 // 2. Thông tin chung & Cá nhân
+app.use('/api/chat', protect, aiChatRoutes);
 app.use('/api/block', protect, blockRoutes);
 app.use('/api/tang', protect, tangRoutes);
 app.use('/api/dichvu', protect, dichVuRoutes);
@@ -135,6 +137,7 @@ app.use('/api/thietbi', protect, thietBiNguoiDungRoutes);
 app.use('/api/trangthai', protect, trangThaiRoutes);
 app.use('/api/my', myRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 
 // === Khởi động Server ===
 app.listen(port, () => {

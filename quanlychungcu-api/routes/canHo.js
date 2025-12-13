@@ -42,6 +42,7 @@ const uploadExcel = multer({ storage: multer.memoryStorage() }); // Giữ lại 
 // GET (Ai cũng xem được)
 router.get('/', canHoController.getAllCanHo);
 router.get('/:id', canHoController.getCanHoById);
+router.get('/:id/info', canHoController.getCanHoInfo);
 
 // POST/PUT/DELETE (Chỉ Quản lý)
 router.use(authorize('Quản lý', 'Admin'));

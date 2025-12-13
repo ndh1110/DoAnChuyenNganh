@@ -1,101 +1,79 @@
 // src/services/blockService.js
 import api from './api';
 
-/**
- * Lớp Service: Chứa tất cả các hàm gọi API liên quan đến "Block"
- * Sử dụng API endpoints: /api/block
- */
-
-// Hàm lấy tất cả Block
-const getAllBlocks = async () => {
-  try {
+const blockService = {
+  // --- QUẢN LÝ BLOCK ---
+  // (Giữ nguyên vì Backend không nhắc sửa cái này, và danh sách Block vẫn hiện)
+  getAll: async () => {
     const response = await api.get('/block');
     return response.data;
-  } catch (error) {
-    console.error("Lỗi khi lấy danh sách block:", error.response || error);
-    // Ném lỗi ra để Lớp Page có thể bắt và xử lý
-    throw error;
-  }
-};
-
-// Hàm lấy 1 Block theo ID
-const getBlockById = async (id) => {
-  try {
+  },
+  getById: async (id) => {
     const response = await api.get(`/block/${id}`);
-    return response.data; // Dữ liệu: { MaBlock, TenBlock, Floors: [...] }
-  } catch (error) {
-    console.error(`Lỗi lấy chi tiết Block ${id}:`, error);
-    throw error;
-  }
-};
-
-// [MỚI] Hàm Setup Nhanh
-const createBlockSetup = async (setupData) => {
-  try {
-    // setupData = { TenBlock, SoTang, TongSoCanHo }
+    return response.data; // Trả về nested data: Block -> Floors -> Apartments
+  },
+  create: async (data) => {
+    const response = await api.post('/block', data);
+    return response.data;
+  },
+  createSetup: async (setupData) => {
     const response = await api.post('/block/setup', setupData);
     return response.data;
-  } catch (error) {
-    console.error("Lỗi Setup Block:", error.response || error);
-    throw error;
-  }
-};
-
-// Hàm tạo Block mới
-// blockData là một object, ví dụ: { TenBlock: "Block D", SoTang: 15 }
-const createBlock = async (blockData) => {
-  try {
-    const response = await api.post('/block', blockData);
+  },
+  update: async (id, data) => {
+    const response = await api.put(`/block/${id}`, data);
     return response.data;
-  } catch (error) {
-    console.error("Lỗi khi tạo block:", error.response || error);
-    throw error;
-  }
-};
-
-// Hàm cập nhật Block
-const updateBlock = async (id, blockData) => {
-  try {
-    const response = await api.put(`/block/${id}`, blockData);
-    return response.data;
-  } catch (error) {
-    console.error(`Lỗi khi cập nhật block ${id}:`, error.response || error);
-    throw error;
-  }
-};
-
-// Hàm xóa Block
-const deleteBlock = async (id) => {
-  try {
-    // API của bạn có thể trả về message xác nhận
+  },
+  delete: async (id) => {
     const response = await api.delete(`/block/${id}`);
     return response.data;
-  } catch (error)
- {
-    console.error(`Lỗi khi xóa block ${id}:`, error.response || error);
-    throw error;
-  }
-};
+  },
 
-// Hàm mới để gọi API setup
-// setupData là object: { TenBlock, SoTang, TongSoCanHo }
-const setupBlock = async (setupData) => {
-  try {
-    const response = await api.post('/block/setup', setupData);
+  // --- QUẢN LÝ TẦNG (SỬA THEO BACKEND: /tang) ---
+  getAllFloors: async () => {
+    // Backend không nói rõ API lấy tất cả tầng, nhưng ta cứ để tạm endpoint gốc
+    const response = await api.get('/tang'); 
     return response.data;
-  } catch (error) {
-    console.error("Lỗi khi setup block:", error.response || error);
-    throw error;
+  },
+  addFloor: async (data) => {
+    // data nhận vào: { TenTang: "...", MaBlock: ... }
+    // Backend yêu cầu: { SoTang: int, MaBlock: int }
+    // Frontend cần đảm bảo data truyền vào khớp với yêu cầu này
+    const response = await api.post('/tang', data);
+    return response.data;
+  },
+  deleteFloor: async (id) => {
+    const response = await api.delete(`/tang/${id}`);
+    return response.data;
+  },
+
+  // --- QUẢN LÝ CĂN HỘ (SỬA THEO BACKEND: /canho) ---
+  getAllApartments: async () => {
+    const response = await api.get('/canho'); 
+    return response.data;
+  },
+  
+  addApartment: async (data) => {
+    // data có thể là JSON hoặc FormData
+    // Endpoint: /api/canho
+    const response = await api.post('/canho', data);
+    return response.data;
+  },
+  
+  updateApartment: async (id, data) => {
+    const response = await api.put(`/canho/${id}`, data);
+    return response.data;
+  },
+  
+  deleteApartment: async (id) => {
+    const response = await api.delete(`/canho/${id}`);
+    return response.data;
+  },
+  getApartmentInfo: async (id) => {
+    // Endpoint: GET /api/canho/:id/info
+    const response = await api.get(`/canho/${id}/info`);
+    return response.data;
   }
 };
 
-// Export tất cả các hàm
-export const blockService = {
-  getAll: getAllBlocks,
-  getById: getBlockById,
-  create: createBlock,
-  update: updateBlock,
-  delete: deleteBlock,
-  setup: setupBlock, // Thêm hàm mới vào export
-  createSetup: createBlockSetup, // Thêm hàm mới vào export
-};
+export { blockService };

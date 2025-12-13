@@ -93,7 +93,7 @@ function LoginPage() {
         <div className="space-y-1">
           <div className="flex justify-between items-center ml-1">
              <label className="text-sm font-semibold text-slate-700">Mật khẩu</label>
-             <Link to="/forgot-password" class="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors">
+             <Link to="/forgot-password" className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors">
                Quên mật khẩu?
              </Link>
           </div>

@@ -1,7 +1,5 @@
-// src/components/ApartmentForm.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 
-// URL cơ sở của Backend để hiển thị ảnh cũ
 const API_BASE_URL = 'http://localhost:5000/'; 
 
 const apartmentTypes = [
@@ -10,211 +8,137 @@ const apartmentTypes = [
   { type: "3 phòng ngủ", area: 108 },
   { type: "Penthouse", area: 200 }
 ];
-const areaMap = new Map(apartmentTypes.map(t => [t.type, t.area]));
-
-// Hàm tách số thứ tự (Giữ nguyên)
-const getSoThuTu = (soCanHoStr) => {
-  if (!soCanHoStr) return '';
-  const parts = soCanHoStr.split('.');
-  if (parts.length === 3 && !isNaN(parseInt(parts[2], 10))) {
-    return parseInt(parts[2], 10).toString();
-  }
-  return soCanHoStr;
-};
 
 function ApartmentForm({ 
   isOpen, onClose, onSubmit, isLoading, 
-  initialData, allBlocks, allFloors, apartmentStatuses 
+  initialData, 
+  fixedMaTang = null, // [MỚI] Nếu truyền cái này, form sẽ tự hiểu là thêm vào tầng này
+  initialStatus = 8   // Mặc định là Trống
 }) {
   
   const [formData, setFormData] = useState({
-    MaTang: '',
-    SoThuTu: '',
-    MaTrangThai: '',
+    SoCanHo: '',
     LoaiCanHo: '',
-    DienTich: ''
+    DienTich: '',
+    MaTrangThai: initialStatus
   });
   
-  const [selectedBlockId, setSelectedBlockId] = useState('');
-  
-  // STATE MỚI CHO ẢNH
-  const [selectedImage, setSelectedImage] = useState(null); // File ảnh mới chọn
-  const [previewUrl, setPreviewUrl] = useState(null);       // URL xem trước
-  const [currentImageUrl, setCurrentImageUrl] = useState(null); // URL ảnh cũ từ DB
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [currentImageUrl, setCurrentImageUrl] = useState(null);
 
   const isEditMode = Boolean(initialData);
-
-  const availableFloors = useMemo(() => {
-    if (!selectedBlockId) return [];
-    return allFloors.filter(f => f.MaBlock.toString() === selectedBlockId);
-  }, [selectedBlockId, allFloors]);
 
   useEffect(() => {
     if (isOpen) {
       if (isEditMode) {
-        const soThuTu = getSoThuTu(initialData.SoCanHo);
         setFormData({
-          MaTang: initialData.MaTang,
-          SoThuTu: soThuTu,
-          MaTrangThai: initialData.MaTrangThai || '',
+          SoCanHo: initialData.SoCanHo || '',
           LoaiCanHo: initialData.LoaiCanHo || '',
-          DienTich: initialData.DienTich || ''
+          DienTich: initialData.DienTich || '',
+          MaTrangThai: initialData.TrangThai || initialStatus
         });
-        
-        const floor = allFloors.find(f => f.MaTang === initialData.MaTang);
-        if (floor) setSelectedBlockId(floor.MaBlock.toString());
-
-        // Xử lý ảnh cũ
-        if (initialData.HinhAnh) {
-            setCurrentImageUrl(API_BASE_URL + initialData.HinhAnh);
-        } else {
-            setCurrentImageUrl(null);
-        }
-
+        if (initialData.HinhAnh) setCurrentImageUrl(API_BASE_URL + initialData.HinhAnh);
       } else {
-        // Reset form tạo mới
-        setFormData({ MaTang: '', SoThuTu: '', MaTrangThai: '', LoaiCanHo: '', DienTich: ''});
-        setSelectedBlockId('');
+        // Reset form
+        setFormData({ SoCanHo: '', LoaiCanHo: '', DienTich: '', MaTrangThai: initialStatus });
         setCurrentImageUrl(null);
       }
-      // Reset ảnh đã chọn
       setSelectedImage(null);
       setPreviewUrl(null);
     }
-  }, [initialData, isEditMode, isOpen, allFloors]);
+  }, [isOpen, isEditMode, initialData]);
 
-  // Xử lý chọn file
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
         setSelectedImage(file);
-        // Tạo URL tạm để xem trước ảnh vừa chọn
         setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleTypeChange = (e) => {
-    const newType = e.target.value;
-    const defaultArea = areaMap.get(newType) || '';
-    setFormData(prev => ({ ...prev, LoaiCanHo: newType, DienTich: defaultArea }));
-  };
-
-  const handleBlockChange = (e) => {
-    setSelectedBlockId(e.target.value);
-    setFormData(prev => ({ ...prev, MaTang: '' }));
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (isLoading || !formData.MaTang || !formData.SoThuTu) {
-      alert("Vui lòng chọn Tầng và nhập Số Thứ Tự Căn Hộ.");
-      return;
-    }
+    
+    // Sử dụng FormData để gửi cả file ảnh
+    const data = new FormData();
+    // Nếu có fixedMaTang, dùng nó. Nếu không (edit), dùng data cũ
+    if (fixedMaTang) data.append('MaTang', fixedMaTang); 
+    else if (initialData?.MaTang) data.append('MaTang', initialData.MaTang);
 
-    // TẠO FORM DATA ĐỂ GỬI FILE
-    const submissionData = new FormData();
-    submissionData.append('MaTang', formData.MaTang);
-    submissionData.append('SoThuTu', formData.SoThuTu.trim()); // Bên cha sẽ dùng cái này để tạo mã
-    submissionData.append('LoaiCanHo', formData.LoaiCanHo || '');
-    submissionData.append('DienTich', formData.DienTich || '');
-    if (formData.MaTrangThai) submissionData.append('MaTrangThai', formData.MaTrangThai);
+    data.append('SoCanHo', formData.SoCanHo);
+    data.append('LoaiCanHo', formData.LoaiCanHo);
+    data.append('DienTich', formData.DienTich);
+    data.append('TrangThai', formData.MaTrangThai);
+    if (selectedImage) data.append('HinhAnh', selectedImage);
 
-    // Nếu có chọn ảnh mới thì gửi
-    if (selectedImage) {
-        submissionData.append('HinhAnh', selectedImage);
-    }
-
-    onSubmit(submissionData);
+    onSubmit(data);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content large">
-        <button onClick={onClose} className="modal-close-btn" disabled={isLoading}>&times;</button>
-        <h2>{isEditMode ? 'Cập nhật Căn hộ' : 'Tạo Căn hộ Mới'}</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col md:flex-row">
         
-        <form onSubmit={handleSubmit} encType="multipart/form-data">
-            <div style={{ display: 'flex', gap: '20px' }}>
-                {/* CỘT TRÁI: THÔNG TIN */}
-                <div style={{ flex: 1 }}>
-                    <div className="form-group">
-                        <label htmlFor="blockSelectForm">Chọn Block (*)</label>
-                        <select id="blockSelectForm" value={selectedBlockId} onChange={handleBlockChange} required disabled={isLoading}>
-                        <option value="">-- Chọn Block --</option>
-                        {allBlocks.map(b => <option key={b.MaBlock} value={b.MaBlock}>{b.TenBlock}</option>)}
-                        </select>
-                    </div>
-                    
-                    <div className="form-group">
-                        <label htmlFor="MaTang">Chọn Tầng (*)</label>
-                        <select id="MaTang" name="MaTang" value={formData.MaTang} onChange={handleChange} required disabled={!selectedBlockId || isLoading}>
-                        <option value="">-- Chọn Tầng --</option>
-                        {availableFloors.map(f => <option key={f.MaTang} value={f.MaTang}>Tầng {f.SoTang}</option>)}
-                        </select>
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="SoThuTu">Số Thứ Tự (*)</label>
-                        <input type="text" id="SoThuTu" name="SoThuTu" value={formData.SoThuTu} onChange={handleChange} required disabled={isLoading} placeholder="Ví dụ: 1, 2, 10..." />
-                    </div>
-                    
-                    <div className="form-group">
-                        <label htmlFor="LoaiCanHo">Loại Căn Hộ</label>
-                        <select id="LoaiCanHo" name="LoaiCanHo" value={formData.LoaiCanHo} onChange={handleTypeChange} disabled={isLoading}>
-                        <option value="">-- Chọn loại --</option>
-                        {apartmentTypes.map(t => <option key={t.type} value={t.type}>{t.type}</option>)}
-                        </select>
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="DienTich">Diện Tích (m²)</label>
-                        <input type="number" step="0.01" id="DienTich" name="DienTich" value={formData.DienTich} onChange={handleChange} disabled={isLoading} />
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="MaTrangThai">Trạng Thái</label>
-                        <select id="MaTrangThai" name="MaTrangThai" value={formData.MaTrangThai} onChange={handleChange} disabled={isLoading}>
-                        <option value="">-- NULL --</option>
-                        {apartmentStatuses.map(s => <option key={s.MaTrangThai} value={s.MaTrangThai}>{s.Ten}</option>)}
-                        </select>
-                    </div>
+        {/* CỘT TRÁI: FORM */}
+        <div className="flex-1 p-6">
+            <h3 className="text-xl font-bold text-slate-800 mb-4">
+                {isEditMode ? 'Cập nhật Căn hộ' : 'Thêm Căn hộ Mới'}
+            </h3>
+            
+            <form id="apt-form" onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Số Căn Hộ <span className="text-red-500">*</span></label>
+                    <input type="text" name="SoCanHo" value={formData.SoCanHo} onChange={handleChange} required placeholder="VD: A101"
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
                 </div>
 
-                {/* CỘT PHẢI: HÌNH ẢNH */}
-                <div style={{ width: '300px', borderLeft: '1px solid #eee', paddingLeft: '20px' }}>
-                    <div className="form-group">
-                        <label>Hình ảnh Căn hộ</label>
-                        <input type="file" onChange={handleImageChange} accept="image/*" disabled={isLoading} />
-                        
-                        <div style={{ marginTop: '15px', border: '1px dashed #ccc', height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: '4px', backgroundColor: '#f9f9f9' }}>
-                            {/* Ưu tiên hiển thị Preview (ảnh vừa chọn) -> sau đó đến ảnh cũ -> sau đó đến placeholder */}
-                            {previewUrl ? (
-                                <img src={previewUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : currentImageUrl ? (
-                                <img src={currentImageUrl} alt="Current" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                                <span style={{ color: '#999' }}>Chưa có ảnh</span>
-                            )}
-                        </div>
-                        {currentImageUrl && !previewUrl && <p style={{fontSize: '0.8em', color: '#666', textAlign: 'center'}}>Ảnh hiện tại đang lưu trên hệ thống</p>}
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Loại Căn</label>
+                        <select name="LoaiCanHo" value={formData.LoaiCanHo} onChange={(e) => {
+                             const type = e.target.value;
+                             const area = apartmentTypes.find(t => t.type === type)?.area || '';
+                             setFormData(prev => ({...prev, LoaiCanHo: type, DienTich: area}));
+                        }} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                            <option value="">-- Chọn --</option>
+                            {apartmentTypes.map(t => <option key={t.type} value={t.type}>{t.type}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Diện tích (m2)</label>
+                        <input type="number" name="DienTich" value={formData.DienTich} onChange={handleChange} 
+                            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
                     </div>
                 </div>
+            </form>
+        </div>
+
+        {/* CỘT PHẢI: ẢNH */}
+        <div className="w-full md:w-72 bg-slate-50 p-6 border-l border-slate-100 flex flex-col">
+            <label className="block text-sm font-medium text-slate-700 mb-2">Hình ảnh</label>
+            <div className="flex-1 border-2 border-dashed border-slate-300 rounded-lg bg-white flex items-center justify-center overflow-hidden relative group">
+                {previewUrl || currentImageUrl ? (
+                    <img src={previewUrl || currentImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                    <span className="text-slate-400 text-sm">Chưa có ảnh</span>
+                )}
+                <input type="file" accept="image/*" onChange={handleImageChange} 
+                    className="absolute inset-0 opacity-0 cursor-pointer" title="Chọn ảnh mới" />
             </div>
-          
-            <div className="form-actions">
-                <button type="button" onClick={onClose} disabled={isLoading} className="btn-cancel">Hủy</button>
-                <button type="submit" disabled={isLoading} className="btn-submit">
-                {isLoading ? 'Đang lưu...' : (isEditMode ? 'Cập nhật' : 'Tạo mới')}
+            <p className="text-xs text-center text-slate-500 mt-2">Click khung trên để chọn ảnh</p>
+
+            <div className="mt-auto flex justify-end gap-2 pt-4">
+                <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg text-sm font-medium">Hủy</button>
+                <button type="submit" form="apt-form" disabled={isLoading} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium shadow-md">
+                    {isLoading ? 'Lưu...' : 'Lưu'}
                 </button>
             </div>
-        </form>
+        </div>
+
       </div>
     </div>
   );

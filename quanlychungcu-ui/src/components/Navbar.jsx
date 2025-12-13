@@ -18,15 +18,13 @@ const NavItem = ({ to, label }) => (
   </NavLink>
 );
 
-// Component Dropdown Menu (Sửa logic Click)
+// Component Dropdown Menu
 const DropdownMenu = ({ title, items }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null); // Dùng ref để phát hiện click outside
+  const dropdownRef = useRef(null); 
 
-  // Toggle menu khi click
   const toggleDropdown = () => setIsOpen(!isOpen);
 
-  // Đóng menu khi click ra ngoài
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -40,7 +38,7 @@ const DropdownMenu = ({ title, items }) => {
   return (
     <div className="relative" ref={dropdownRef}>
       <button 
-        onClick={toggleDropdown} // <-- SỬA THÀNH CLICK
+        onClick={toggleDropdown}
         className={`flex items-center gap-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
             isOpen ? "bg-blue-50 text-blue-600" : "text-gray-700 hover:bg-blue-50 hover:text-blue-600"
         }`}
@@ -51,14 +49,13 @@ const DropdownMenu = ({ title, items }) => {
         </svg>
       </button>
       
-      {/* Dropdown Content */}
       {isOpen && (
         <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 py-2 z-50 animate-fade-in-down">
           {items.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
-              onClick={() => setIsOpen(false)} // Đóng menu khi chọn item
+              onClick={() => setIsOpen(false)}
               className={({ isActive }) =>
                 `block px-4 py-2.5 text-sm transition-colors ${
                   isActive ? "bg-blue-50 text-blue-600 font-semibold" : "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
@@ -95,7 +92,6 @@ export default function Navbar() {
         
         {/* LOGO */}
         <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate('/')}>
-           {/* Icon Logo sang trọng hơn */}
            <div className="w-10 h-10 bg-gradient-to-br from-slate-800 to-black rounded-xl flex items-center justify-center text-white font-serif font-bold text-xl shadow-lg border border-slate-600 group-hover:scale-105 transition-transform">
              G
            </div>
@@ -112,15 +108,8 @@ export default function Navbar() {
         {/* MENU CHÍNH */}
         <div className="hidden md:flex items-center gap-1">
           
-          <DropdownMenu 
-            title="Dự án" 
-            items={[
-              { to: '/blocks', label: 'Khu tòa nhà (Blocks)' },
-              { to: '/floors', label: 'Danh sách Tầng' },
-              { to: '/apartments', label: 'Tra cứu Căn hộ' },
-              { to: '/showcase', label: 'Thư viện Ảnh' },
-            ]} 
-          />
+          {/* MENU DỰ ÁN: Đã làm gọn */}
+          <NavItem to="/blocks" label="🏢 Cấu trúc Tòa nhà" />
 
           <DropdownMenu 
             title="Dịch vụ" 
@@ -146,7 +135,7 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* USER & LOGOUT */}
+        {/* USER INFO */}
         <div className="flex items-center gap-3">
           <NavLink 
             to="/profile" 

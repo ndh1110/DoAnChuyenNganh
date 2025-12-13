@@ -1,71 +1,67 @@
-// src/components/ResidentList.jsx
 import React from 'react';
 
 const ResidentList = ({ residents, onViewDetails, onEdit, onDelete }) => {
-
-  // --- THÊM 2 DÒNG NÀY ---
-  // Nếu residents chưa có dữ liệu (undefined) hoặc không phải là mảng,
-  // thì hiển thị null (hoặc loading) thay vì bị crash.
-  if (!Array.isArray(residents)) {
-    return <div>Đang tải danh sách...</div>; // Hoặc return null;
-  }
-  // -------------------------
+  if (!Array.isArray(residents)) return <div className="p-8 text-center text-slate-500">Đang tải danh sách...</div>;
 
   return (
-    <div className="resident-list mt-6 overflow-x-auto">
-      <table className="min-w-full bg-white border border-gray-200">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="py-2 px-4 border-b text-left">Mã ND</th>
-            <th className="py-2 px-4 border-b text-left">Họ Tên</th>
-            <th className="py-2 px-4 border-b text-left">Email</th>
-            <th className="py-2 px-4 border-b text-left">SĐT</th>
-            <th className="py-2 px-4 border-b text-left">CCCD/CMND</th>
-            <th className="py-2 px-4 border-b text-left">Hành động</th>
-          </tr>
-        </thead>
-        <tbody>
-          {/* Dòng này (trước đó là 21) giờ đã an toàn */}
-          {residents.map((resident) => (
-            <tr key={resident.MaNguoiDung} className="hover:bg-gray-50">
-              <td className="py-2 px-4 border-b">{resident.MaNguoiDung}</td>
-              <td className="py-2 px-4 border-b font-medium">{resident.HoTen}</td>
-              <td className="py-2 px-4 border-b text-sm">{resident.Email}</td>
-              <td className="py-2 px-4 border-b">{resident.SoDienThoai || 'N/A'}</td>
-              <td className="py-2 px-4 border-b">{resident.CCCD || 'N/A'}</td>
-              <td className="py-2 px-4 border-b">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider font-semibold">
+              <th className="p-4 pl-6">Mã Cư Dân</th>
+              <th className="p-4">Họ và Tên</th>
+              <th className="p-4">Liên hệ</th>
+              <th className="p-4">CCCD/CMND</th>
+              <th className="p-4 text-right pr-6">Hành động</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {residents.map((resident) => (
+              <tr key={resident.MaNguoiDung} className="hover:bg-slate-50 transition-colors group">
+                <td className="p-4 pl-6 font-medium text-slate-900">#{resident.MaNguoiDung}</td>
                 
-                <button
-                  onClick={() => onViewDetails(resident.MaNguoiDung)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded mr-2"
-                >
-                  Xem
-                </button>
-                <button
-                  onClick={() => onEdit(resident)}
-                  className="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-3 rounded mr-2"
-                >
-                  Sửa
-                </button>
-                <button
-                  onClick={() => onDelete(resident.MaNguoiDung)}
-                  className="bg-red-600 hover:bg-red-700 text-white py-1 px-3 rounded"
-                >
-                  Xóa
-                </button>
-              </td>
-            </tr>
-          ))}
+                <td className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+                      {resident.HoTen.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="font-medium text-slate-800">{resident.HoTen}</div>
+                  </div>
+                </td>
 
-          {residents.length === 0 && (
-            <tr>
-              <td colSpan="6" className="py-4 text-center text-gray-500">
-                🔑 Chưa có cư dân nào trong hệ thống.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+                <td className="p-4">
+                  <div className="flex flex-col text-sm">
+                    <span className="text-slate-700">{resident.Email}</span>
+                    <span className="text-slate-500 text-xs">{resident.SoDienThoai || '---'}</span>
+                  </div>
+                </td>
+
+                <td className="p-4 text-sm text-slate-600">
+                  {resident.CCCD || <span className="italic text-slate-400">Chưa cập nhật</span>}
+                </td>
+
+                <td className="p-4 pr-6 text-right">
+                  <div className="flex justify-end gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => onViewDetails(resident.MaNguoiDung)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all" title="Xem chi tiết">
+                      👁️
+                    </button>
+                    <button onClick={() => onEdit(resident)} className="p-1.5 text-slate-400 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-all" title="Chỉnh sửa">
+                      ✏️
+                    </button>
+                    <button onClick={() => onDelete(resident.MaNguoiDung)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-all" title="Xóa">
+                      🗑️
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {residents.length === 0 && (
+              <tr><td colSpan="5" className="p-12 text-center text-slate-400 italic">Chưa có dữ liệu cư dân.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };

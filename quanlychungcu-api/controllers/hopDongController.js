@@ -75,7 +75,6 @@ const getHopDongById = async (req, res) => {
 const createHopDong = async (req, res) => {
     const transaction = new mssql.Transaction(req.pool);
     try {
-        // Nhận BenB_Id từ body (thay vì ChuHoId)
         const { 
             SoHopDong, MaCanHo, BenB_Id, BenA_Id,
             Loai, GiaTriHopDong, SoTienCoc, 
@@ -88,6 +87,7 @@ const createHopDong = async (req, res) => {
 
         await transaction.begin();
 
+        // 1. Tạo Hợp Đồng
         const requestHD = new mssql.Request(transaction);
         const resultHD = await requestHD
             .input('SoHopDong', mssql.NVarChar, SoHopDong)
@@ -113,6 +113,7 @@ const createHopDong = async (req, res) => {
         
         const newMaHopDong = resultHD.recordset[0].MaHopDong;
 
+        // 2. Thêm Điều Khoản (nếu có)
         if (DieuKhoans && Array.isArray(DieuKhoans) && DieuKhoans.length > 0) {
             for (const noiDung of DieuKhoans) {
                 const requestDK = new mssql.Request(transaction);
@@ -123,8 +124,30 @@ const createHopDong = async (req, res) => {
             }
         }
 
+        // =============================================
+        // ⭐ 3. CẬP NHẬT TRẠNG THÁI CĂN HỘ (Code Mới)
+        // =============================================
+        // Lấy ID của trạng thái "Đã ở" (OCCUPIED)
+        // Lưu ý: ID này phụ thuộc vào DB của bạn. Ở bước SQL trên, giả sử nó sinh ra là 9.
+        // Tốt nhất là query tìm ID theo Code để an toàn.
+        const requestFindStatus = new mssql.Request(transaction);
+        const statusResult = await requestFindStatus
+            .query("SELECT MaTrangThai FROM dbo.TrangThai WHERE Code = 'OCCUPIED' AND Context = 'APARTMENT'");
+        
+        let maTrangThaiDaO = 9; // Fallback nếu không tìm thấy
+        if (statusResult.recordset.length > 0) {
+            maTrangThaiDaO = statusResult.recordset[0].MaTrangThai;
+        }
+
+        const requestUpdateCanHo = new mssql.Request(transaction);
+        await requestUpdateCanHo
+            .input('MaTrangThai', mssql.Int, maTrangThaiDaO)
+            .input('MaCanHo', mssql.Int, MaCanHo)
+            .query('UPDATE dbo.CanHo SET MaTrangThai = @MaTrangThai WHERE MaCanHo = @MaCanHo');
+
         await transaction.commit();
-        res.status(201).json({ message: 'Thành công', MaHopDong: newMaHopDong });
+        res.status(201).json({ message: 'Tạo Hợp đồng thành công & Đã cập nhật trạng thái căn hộ', MaHopDong: newMaHopDong });
+
     } catch (err) {
         if (transaction.active) await transaction.rollback();
         console.error(err);

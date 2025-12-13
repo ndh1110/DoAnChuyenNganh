@@ -6,7 +6,6 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { authService } from "./services/authService";
 
 // 2. IMPORT CÁC COMPONENT VÀ TRANG
-import ApartmentShowcasePage from "./pages/ApartmentShowcasePage";
 import ProfilePage from './pages/ProfilePage';
 import DashboardPage from "./pages/DashboardPage"; // <-- 2. IMPORT FILE MỚI
 import Navbar from "./components/Navbar";
@@ -18,8 +17,6 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import BlocksPage from "./pages/BlocksPage";
 import BlockDetailsPage from "./pages/BlockDetailsPage";
 import ResidentsPage from "./pages/ResidentsPage";
-import FloorsPage from "./pages/FloorsPage";
-import ApartmentsPage from "./pages/ApartmentsPage";
 import ContractsPage from "./pages/ContractsPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import ServicesPage from "./pages/ServicesPage";
@@ -68,8 +65,6 @@ function AppContent() {
             
             <Route path="/blocks" element={<BlocksPage />} />
             <Route path="/blocks/:id" element={<BlockDetailsPage />} />
-            <Route path="/floors" element={<FloorsPage />} />
-            <Route path="/apartments" element={<ApartmentsPage />} />
             <Route path="/residents" element={<ResidentsPage />} />
             <Route path="/contracts" element={<ContractsPage />} />
             <Route path="/invoices" element={<InvoicesPage />} />
@@ -78,7 +73,6 @@ function AppContent() {
             <Route path="/requests" element={<RequestsPage />} />
             <Route path="/common-areas" element={<CommonAreasPage />} />
             <Route path="/user-management" element={<UserManagementPage />} />
-            <Route path="/showcase" element={<ApartmentShowcasePage />} />
             <Route path="/profile" element={<ProfilePage />} />
           </Route>
 

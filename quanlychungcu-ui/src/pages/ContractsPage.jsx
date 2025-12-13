@@ -2,10 +2,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
 import { contractService } from '../services/contractService';
-import { residentService } from '../services/residentService'; 
-import { apartmentService } from '../services/apartmentService';
-import { floorService } from '../services/floorService';
-import { blockService } from '../services/blockService';
+import { residentService } from '../services/residentService';
+// --- SỬA: Bỏ import apartmentService, floorService ---
+import { blockService } from '../services/blockService'; 
 
 import ContractList from '../components/ContractList';
 import ContractForm from '../components/ContractForm';
@@ -25,18 +24,19 @@ function ContractsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [currentContract, setCurrentContract] = useState(null);
-  const [viewMode, setViewMode] = useState('list'); // 'list' | 'details'
+  const [viewMode, setViewMode] = useState('list');
   const [detailContract, setDetailContract] = useState(null);
   
   const loadInitialData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      // --- SỬA: Gọi blockService thay cho apartmentService/floorService ---
       const [contractsData, residentsData, apartmentsData, floorsData, blocksData] = await Promise.all([
         contractService.getAll(),
         residentService.getAll(),
-        apartmentService.getAll(),
-        floorService.getAll(),
+        blockService.getAllApartments(), // Sửa tại đây
+        blockService.getAllFloors(),     // Sửa tại đây
         blockService.getAll()
       ]);
       setAllContracts(contractsData);
@@ -66,7 +66,6 @@ function ContractsPage() {
   }, [allApartments, allFloors, allBlocks]);
 
   const hydratedContracts = useMemo(() => {
-    // Backend đã join sẵn TenBenA, TenBenB, nên không cần map lại nhiều
     return allContracts; 
   }, [allContracts]);
   
@@ -84,7 +83,6 @@ function ContractsPage() {
         loadInitialData();
       } catch (err) {
         setError(err.message || "Lỗi khi xóa Hợp đồng.");
-        alert(`Lỗi khi xóa: ${error}`);
       } finally {
         setLoading(false);
       }
@@ -96,8 +94,6 @@ function ContractsPage() {
       setFormLoading(true);
       setError(null);
 
-      // 1. Update CCCD (nếu người dùng nhập mới)
-      // formData.BenB_Id là người mua/thuê (chính là ChuHoId cũ)
       if (needsCCCDUpdate) {
          try {
              await residentService.update(formData.BenB_Id, { CCCD: formData.CCCD });
@@ -106,7 +102,6 @@ function ContractsPage() {
          }
       }
       
-      // 2. Gửi dữ liệu
       const dataToSubmit = {
         SoHopDong: formData.SoHopDong,
         MaCanHo: parseInt(formData.MaCanHo),
@@ -125,7 +120,7 @@ function ContractsPage() {
         alert("Đã cập nhật thông tin Hợp đồng!");
       } else {
         await contractService.create(dataToSubmit); 
-        alert("Tạo Hợp đồng và các Điều khoản thành công!");
+        alert("Tạo Hợp đồng thành công!");
       }
 
       setIsModalOpen(false);
@@ -141,7 +136,7 @@ function ContractsPage() {
   };
 
   return (
-    <div className="page-container">
+    <div className="container mx-auto p-6">
       <ContractForm
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -154,13 +149,13 @@ function ContractsPage() {
 
       {viewMode === 'list' ? (
           <>
-            <div className="page-header flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">Quản lý Hợp đồng</h2>
-                <button onClick={handleAddNew} className="btn-add-new bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 shadow">
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-slate-800">Quản lý Hợp đồng</h2>
+                <button onClick={handleAddNew} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 shadow">
                 + Thêm Hợp đồng Mới
                 </button>
             </div>
-            {error && <div className="error-message text-red-600 mb-4">Lỗi: {error}</div>}
+            {error && <div className="p-4 mb-4 bg-red-50 text-red-600 rounded">Lỗi: {error}</div>}
             <ContractList
                 contracts={hydratedContracts}
                 onViewDetails={handleViewDetails} 

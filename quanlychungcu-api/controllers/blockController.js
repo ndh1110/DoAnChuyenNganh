@@ -34,15 +34,18 @@ const getBlockById = async (req, res) => {
         }
         const block = blockResult.recordset[0];
 
-        // 2. Lấy danh sách Tầng và Căn hộ (JOIN)
-        // Lấy TenTrangThai thay vì ID để Frontend dễ hiển thị
+        // 2. Lấy danh sách Tầng và Căn hộ
+        // Đã sửa lại cú pháp SQL, thêm dấu phẩy đầy đủ
         const detailsResult = await pool.request()
             .input('MaBlock', mssql.Int, id)
             .query(`
                 SELECT 
-                    t.MaTang, t.SoTang,
-                    ch.MaCanHo, ch.SoCanHo,
-                    ISNULL(tt.Ten, N'Trống') AS TrangThai
+                    t.MaTang, 
+                    t.SoTang,
+                    ch.MaCanHo, 
+                    ch.SoCanHo,
+                    ISNULL(tt.Ten, N'Trống') AS TrangThai,
+                    ISNULL(ch.MaTrangThai, 8) AS MaTrangThai
                 FROM dbo.Tang t
                 LEFT JOIN dbo.CanHo ch ON t.MaTang = ch.MaTang
                 LEFT JOIN dbo.TrangThai tt ON ch.MaTrangThai = tt.MaTrangThai
@@ -50,11 +53,10 @@ const getBlockById = async (req, res) => {
                 ORDER BY t.SoTang, ch.SoCanHo
             `);
 
-        // 3. Xử lý dữ liệu phẳng (Flat) thành lồng nhau (Nested)
+        // 3. Xử lý dữ liệu lồng nhau (Nested)
         const floorsMap = new Map();
 
         detailsResult.recordset.forEach(row => {
-            // Nếu tầng chưa có trong Map, tạo mới
             if (!floorsMap.has(row.MaTang)) {
                 floorsMap.set(row.MaTang, {
                     MaTang: row.MaTang,
@@ -63,19 +65,17 @@ const getBlockById = async (req, res) => {
                 });
             }
 
-            // Nếu dòng này có Căn hộ (không null), thêm vào mảng Apartments của tầng đó
             if (row.MaCanHo) {
                 floorsMap.get(row.MaTang).Apartments.push({
                     MaCanHo: row.MaCanHo,
                     SoCanHo: row.SoCanHo,
-                    TrangThai: row.TrangThai
+                    TrangThai: row.TrangThai,
+                    MaTrangThai: row.MaTrangThai // Đã lấy đúng ID
                 });
             }
         });
 
-        // Gắn danh sách tầng vào đối tượng Block
         block.Floors = Array.from(floorsMap.values());
-
         res.json(block);
 
     } catch (err) {

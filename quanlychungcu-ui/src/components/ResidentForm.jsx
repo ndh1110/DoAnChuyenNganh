@@ -1,168 +1,81 @@
-// src/components/ResidentForm.jsx
 import React, { useState, useEffect } from 'react';
 
-// (MỚI) Hàm kiểm tra CCCD 9 số (CMND cũ) hoặc 12 số (CCCD mới)
-const isValidCCCD = (cccd) => {
-  if (!cccd) return false;
-  // Regex cho 9 số hoặc 12 số
-  const cccdRegex = /^(\d{9}|\d{12})$/;
-  return cccdRegex.test(cccd);
-};
+const isValidCCCD = (cccd) => /^(\d{9}|\d{12})$/.test(cccd);
 
-// Đây là "Dumb Component" cho Form
-// Nhận 'initialData' (để Sửa) và 2 hàm handler
 const ResidentForm = ({ initialData, onSubmit, onClose }) => {
-  
-  // State nội bộ của Form
   const [formData, setFormData] = useState({
-    HoTen: '',
-    Email: '',
-    SoDienThoai: '',
-    CCCD: '', // <-- THÊM MỚI
-    MatKhauHash: '', // Chỉ yêu cầu khi Tạo mới
+    HoTen: '', Email: '', SoDienThoai: '', CCCD: '', MatKhauHash: ''
   });
-  
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isEditMode = !!initialData;
 
-  // Nếu 'initialData' thay đổi (khi bấm Sửa), cập nhật state của form
   useEffect(() => {
     if (initialData) {
       setFormData({
         HoTen: initialData.HoTen || '',
         Email: initialData.Email || '',
         SoDienThoai: initialData.SoDienThoai || '',
-        CCCD: initialData.CCCD || '', // <-- THÊM MỚI
-        MatKhauHash: '', // Không bao giờ hiển thị mật khẩu cũ
+        CCCD: initialData.CCCD || '',
+        MatKhauHash: ''
       });
     } else {
-      // Reset form khi Tạo mới
-      setFormData({ HoTen: '', Email: '', SoDienThoai: '', CCCD: '', MatKhauHash: '' }); // <-- THÊM MỚI
+      setFormData({ HoTen: '', Email: '', SoDienThoai: '', CCCD: '', MatKhauHash: '' });
     }
   }, [initialData]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // (MỚI) Validation: Nếu CCCD được nhập, nó phải hợp lệ
-    // (Nếu để trống thì cho qua, coi như là null)
     if (formData.CCCD && !isValidCCCD(formData.CCCD)) {
-        alert("CCCD không hợp lệ. Phải là 9 hoặc 12 chữ số (hoặc để trống).");
-        return;
+        alert("CCCD không hợp lệ (9 hoặc 12 số)."); return;
     }
-
     setIsSubmitting(true);
-    
-    // Tạo object payload
     const payload = { ...formData };
-    
-    // Nếu là Sửa và không nhập mật khẩu, thì không gửi trường mật khẩu
-    if (initialData && !payload.MatKhauHash) {
-      delete payload.MatKhauHash;
-    }
-    
-    // (MỚI) Nếu CCCD là chuỗi rỗng, gửi null lên DB
-    if (payload.CCCD === '') {
-        payload.CCCD = null;
-    }
-    
-    // Gọi hàm onSubmit từ 'pages' (handleFormSubmit)
-    await onSubmit(payload); 
-    
+    if (isEditMode && !payload.MatKhauHash) delete payload.MatKhauHash;
+    if (payload.CCCD === '') payload.CCCD = null;
+    await onSubmit(payload);
     setIsSubmitting(false);
   };
 
-  // Xác định xem đây là form Tạo mới hay Cập nhật
-  const isEditMode = !!initialData;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg">
-        <h2 className="text-2xl font-bold mb-4">
-          {isEditMode ? 'Cập nhật Cư dân' : 'Tạo Cư dân Mới'}
-        </h2>
-        
-        <form onSubmit={handleSubmit}>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Họ Tên</label>
-            <input
-              type="text"
-              name="HoTen"
-              value={formData.HoTen}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              name="Email"
-              value={formData.Email}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Số Điện Thoại</label>
-            <input
-              type="tel"
-              name="SoDienThoai"
-              value={formData.SoDienThoai}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-            />
-          </div>
-          
-          {/* --- THÊM MỚI: Ô NHẬP CCCD --- */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">CCCD/CMND</label>
-            <input
-              type="text"
-              name="CCCD"
-              value={formData.CCCD}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-              placeholder="9 hoặc 12 số (nếu có)"
-            />
-          </div>
-          {/* --- KẾT THÚC THÊM MỚI --- */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden transform transition-all scale-100">
+        {/* Header */}
+        <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+          <h3 className="text-lg font-bold text-slate-800">{isEditMode ? 'Cập nhật Cư dân' : 'Thêm Cư dân Mới'}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">✕</button>
+        </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">
-              Mật khẩu {isEditMode ? '(Để trống nếu không đổi)' : ''}
-            </label>
-            <input
-              type="password"
-              name="MatKhauHash"
-              value={formData.MatKhauHash}
-              onChange={handleChange}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-              required={!isEditMode} // Mật khẩu là bắt buộc khi Tạo mới
-            />
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Họ và Tên <span className="text-red-500">*</span></label>
+            <input type="text" name="HoTen" value={formData.HoTen} onChange={handleChange} required className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
           </div>
-          
-          <div className="flex justify-end gap-3 mt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="bg-gray-300 hover:bg-gray-400 text-black py-2 px-4 rounded"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-            >
-              {isSubmitting ? 'Đang lưu...' : (isEditMode ? 'Cập nhật' : 'Tạo mới')}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Email <span className="text-red-500">*</span></label>
+                <input type="email" name="Email" value={formData.Email} onChange={handleChange} required className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Số Điện Thoại</label>
+                <input type="tel" name="SoDienThoai" value={formData.SoDienThoai} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">CCCD/CMND</label>
+            <input type="text" name="CCCD" value={formData.CCCD} onChange={handleChange} placeholder="9 hoặc 12 số" className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Mật khẩu {isEditMode && <span className="text-xs font-normal text-slate-500">(Để trống nếu không đổi)</span>}</label>
+            <input type="password" name="MatKhauHash" value={formData.MatKhauHash} onChange={handleChange} required={!isEditMode} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-50 mt-4">
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 font-medium">Hủy</button>
+            <button type="submit" disabled={isSubmitting} className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium shadow-md transition-all">
+                {isSubmitting ? 'Đang lưu...' : 'Lưu thay đổi'}
             </button>
           </div>
         </form>

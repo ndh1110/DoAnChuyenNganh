@@ -4,7 +4,7 @@ const xlsx = require('xlsx');
 
 /**
  * GET /api/canho
- * Lấy danh sách căn hộ (Kèm cột HinhAnh)
+ * Lấy danh sách căn hộ (Kèm cột HinhAnh và MauSac)
  */
 const getAllCanHo = async (req, res) => {
     try {
@@ -13,11 +13,12 @@ const getAllCanHo = async (req, res) => {
                 SELECT 
                     ch.MaCanHo, ch.SoCanHo,
                     ch.LoaiCanHo, ch.DienTich,
-                    ch.HinhAnh, -- <--- THÊM: Lấy đường dẫn ảnh
+                    ch.HinhAnh,
                     t.MaTang, t.SoTang,
                     b.MaBlock, b.TenBlock,
                     ch.MaTrangThai,
-                    ISNULL(tt.Ten, 'N/A') AS TenTrangThai
+                    ISNULL(tt.Ten, 'N/A') AS TenTrangThai,
+                    tt.MauSac -- <--- THÊM: Màu sắc để vẽ badge
                 FROM dbo.CanHo ch
                 JOIN dbo.Tang t ON ch.MaTang = t.MaTang
                 JOIN dbo.Block b ON t.MaBlock = b.MaBlock
@@ -42,10 +43,11 @@ const getCanHoById = async (req, res) => {
             .input('MaCanHo', mssql.Int, id)
             .query(`
                 SELECT 
-                    ch.*, -- Đã bao gồm HinhAnh
+                    ch.*,
                     t.SoTang,
                     b.TenBlock,
-                    ISNULL(tt.Ten, 'N/A') AS TenTrangThai
+                    ISNULL(tt.Ten, 'N/A') AS TenTrangThai,
+                    tt.Code AS TrangThaiCode
                 FROM dbo.CanHo ch
                 JOIN dbo.Tang t ON ch.MaTang = t.MaTang
                 JOIN dbo.Block b ON t.MaBlock = b.MaBlock
@@ -64,21 +66,71 @@ const getCanHoById = async (req, res) => {
 };
 
 /**
+ * GET /api/canho/:id/info
+ * (MỚI) Lấy thông tin chi tiết + Chủ hộ (Dành cho Modal Sơ đồ)
+ */
+const getCanHoInfo = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const pool = req.pool;
+
+        // OUTER APPLY: Lấy hợp đồng mới nhất còn hiệu lực
+        const result = await pool.request()
+            .input('MaCanHo', mssql.Int, id)
+            .query(`
+                SELECT 
+                    ch.MaCanHo, ch.SoCanHo, ch.DienTich, ch.LoaiCanHo,
+                    ISNULL(tt.Ten, N'Chưa xác định') AS TrangThai,
+                    ISNULL(tt.Code, 'UNKNOWN') AS TrangThaiCode,
+                    tt.MauSac,
+                    
+                    -- Thông tin Hợp đồng (Nếu có)
+                    hd.SoHopDong, 
+                    hd.NgayKy, 
+                    hd.NgayHetHan,
+                    
+                    -- Thông tin Cư dân
+                    nd.HoTen AS TenChuHo,
+                    nd.SoDienThoai,
+                    nd.Email
+                FROM dbo.CanHo ch
+                LEFT JOIN dbo.TrangThai tt ON ch.MaTrangThai = tt.MaTrangThai
+                -- Tìm hợp đồng active
+                OUTER APPLY (
+                    SELECT TOP 1 MaHopDong, SoHopDong, NgayKy, NgayHetHan, BenB_Id
+                    FROM dbo.HopDong 
+                    WHERE MaCanHo = ch.MaCanHo 
+                    AND NgayHetHan >= CAST(GETDATE() AS DATE) 
+                    ORDER BY NgayKy DESC
+                ) hd
+                LEFT JOIN dbo.NguoiDung nd ON hd.BenB_Id = nd.MaNguoiDung
+                WHERE ch.MaCanHo = @MaCanHo
+            `);
+
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ message: 'Không tìm thấy căn hộ' });
+        }
+
+        res.json(result.recordset[0]);
+    } catch (err) {
+        console.error('Lỗi lấy info căn hộ:', err);
+        res.status(500).send(err.message);
+    }
+};
+
+/**
  * POST /api/canho
- * Tạo mới căn hộ (Có xử lý upload ảnh)
+ * Tạo mới căn hộ
  */
 const createCanHo = async (req, res) => {
     try {
         const { SoCanHo, MaTang, MaTrangThai, LoaiCanHo, DienTich } = req.body; 
 
-        // 1. XỬ LÝ FILE ẢNH (Nếu có)
         let hinhAnhPath = null;
         if (req.file) {
-            // Multer trả về đường dẫn có dấu '\' trên Windows, cần đổi thành '/' cho URL
             hinhAnhPath = req.file.path.replace(/\\/g, "/");
         }
 
-        // Validate dữ liệu bắt buộc
         if (!SoCanHo || !MaTang) {
             return res.status(400).send('Thiếu SoCanHo hoặc MaTang');
         }
@@ -89,7 +141,7 @@ const createCanHo = async (req, res) => {
             .input('MaTrangThai', mssql.Int, MaTrangThai)
             .input('LoaiCanHo', mssql.NVarChar, LoaiCanHo)
             .input('DienTich', mssql.Decimal(10, 2), DienTich)
-            .input('HinhAnh', mssql.NVarChar, hinhAnhPath) // <--- Input HinhAnh
+            .input('HinhAnh', mssql.NVarChar, hinhAnhPath)
             .query(`INSERT INTO dbo.CanHo (SoCanHo, MaTang, MaTrangThai, LoaiCanHo, DienTich, HinhAnh) 
                     OUTPUT Inserted.* VALUES (@SoCanHo, @MaTang, @MaTrangThai, @LoaiCanHo, @DienTich, @HinhAnh)`);
         
@@ -105,7 +157,7 @@ const createCanHo = async (req, res) => {
 
 /**
  * PUT /api/canho/:id
- * Cập nhật căn hộ (Có xử lý cập nhật ảnh)
+ * Cập nhật căn hộ
  */
 const updateCanHo = async (req, res) => {
     try {
@@ -113,13 +165,11 @@ const updateCanHo = async (req, res) => {
         const { SoCanHo, MaTang, MaTrangThai, LoaiCanHo, DienTich } = req.body;
         const pool = req.pool;
 
-        // 1. Kiểm tra xem có file ảnh mới được upload không
         let newHinhAnhPath = undefined;
         if (req.file) {
             newHinhAnhPath = req.file.path.replace(/\\/g, "/");
         }
 
-        // 2. Lấy dữ liệu cũ từ DB
         const oldDataResult = await pool.request()
             .input('MaCanHo', mssql.Int, id)
             .query('SELECT * FROM dbo.CanHo WHERE MaCanHo = @MaCanHo');
@@ -129,17 +179,13 @@ const updateCanHo = async (req, res) => {
         }
         const oldData = oldDataResult.recordset[0];
 
-        // 3. Trộn dữ liệu (Merge)
         const newSoCanHo = SoCanHo !== undefined ? SoCanHo : oldData.SoCanHo;
         const newMaTang = MaTang !== undefined ? MaTang : oldData.MaTang;
         const newMaTrangThai = MaTrangThai !== undefined ? MaTrangThai : oldData.MaTrangThai;
         const newLoaiCanHo = LoaiCanHo !== undefined ? LoaiCanHo : oldData.LoaiCanHo;
         const newDienTich = DienTich !== undefined ? DienTich : oldData.DienTich;
-        
-        // Logic ảnh: Nếu có ảnh mới -> dùng mới. Nếu không -> dùng lại ảnh cũ.
         const finalHinhAnh = newHinhAnhPath !== undefined ? newHinhAnhPath : oldData.HinhAnh;
 
-        // 4. Thực hiện Update
         const result = await pool.request()
             .input('MaCanHo', mssql.Int, id)
             .input('SoCanHo', mssql.NVarChar, newSoCanHo)
@@ -147,7 +193,7 @@ const updateCanHo = async (req, res) => {
             .input('MaTrangThai', mssql.Int, newMaTrangThai)
             .input('LoaiCanHo', mssql.NVarChar, newLoaiCanHo)
             .input('DienTich', mssql.Decimal(10, 2), newDienTich)
-            .input('HinhAnh', mssql.NVarChar, finalHinhAnh) // <--- Update HinhAnh
+            .input('HinhAnh', mssql.NVarChar, finalHinhAnh)
             .query(`UPDATE dbo.CanHo 
                     SET SoCanHo = @SoCanHo, MaTang = @MaTang, MaTrangThai = @MaTrangThai,
                         LoaiCanHo = @LoaiCanHo, DienTich = @DienTich, HinhAnh = @HinhAnh
@@ -188,7 +234,6 @@ const deleteCanHo = async (req, res) => {
 
 /**
  * POST /api/canho/import-excel
- * (Giữ nguyên logic Import Excel cũ - Không hỗ trợ import ảnh qua Excel)
  */
 const importFromExcel = async (req, res) => {
     if (!req.file) {
@@ -271,7 +316,6 @@ const importFromExcel = async (req, res) => {
                     .input('MaTrangThai', mssql.Int, canHo.MaTrangThai)
                     .input('LoaiCanHo', mssql.NVarChar, canHo.LoaiCanHo)
                     .input('DienTich', mssql.Decimal(10, 2), canHo.DienTich)
-                    // Import Excel mặc định HinhAnh là NULL
                     .query(`INSERT INTO dbo.CanHo (SoCanHo, MaTang, MaTrangThai, LoaiCanHo, DienTich, HinhAnh) 
                             VALUES (@SoCanHo, @MaTang, @MaTrangThai, @LoaiCanHo, @DienTich, NULL)`);
                 insertedCount++;
@@ -309,6 +353,7 @@ const importFromExcel = async (req, res) => {
 module.exports = {
     getAllCanHo,
     getCanHoById,
+    getCanHoInfo, // <--- Đã export hàm mới
     createCanHo,
     updateCanHo,
     deleteCanHo,

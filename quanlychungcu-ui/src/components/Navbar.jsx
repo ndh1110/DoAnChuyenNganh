@@ -107,7 +107,7 @@ export default function Navbar() {
 
           {/* Menu cho Quản lý: Tách Dropdown cũ thành 2 mục rõ ràng */}
           <NavItem to="/blocks" label="🏢 Sơ đồ Tòa nhà" />
-          <NavItem to="/apartments" label="🔍 Tra cứu Căn hộ" />
+          <NavItem to="/showcase" label="🔍 Tra cứu Căn hộ" />
 
           {/* Các mục khác giữ nguyên */}
           <DropdownMenu 

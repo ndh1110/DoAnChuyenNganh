@@ -1,4 +1,4 @@
-// src/pages/ApartmentDetailPage.jsx (PHIÊN BẢN HOÀN CHỈNH VÀ ĐÃ FIX TẤT CẢ LỖI HOOK/API)
+// src/pages/ApartmentDetailPage.jsx (PHIÊN BẢN ĐÃ FIX LỖI CRASH 'LENGTH')
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
@@ -6,11 +6,10 @@ import { blockService } from "../services/blockService";
 import AddResidentForm from '../components/AddResidentForm'; 
 import toast, { Toaster } from 'react-hot-toast';
 import api from '../services/api'; 
-// Đảm bảo UpdateResidentModal được định nghĩa (tôi sẽ đưa nó vào file này để tiện)
 
 const API_URL = 'http://localhost:5000/'; 
 
-// --- HÀM TIỆN ÍCH (PHẢI NẰM NGOÀI COMPONENT) ---
+// --- HÀM TIỆN ÍCH ---
 const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString.split('T')[0]); 
@@ -24,10 +23,8 @@ const formatCurrency = (value) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numericValue);
 };
 
-
 // --- COMPONENT MODAL CẬP NHẬT/GIA HẠN CƯ DÂN ---
 const UpdateResidentModal = ({ isOpen, onClose, resident, onUpdated, currentApartmentId }) => {
-    // FIX 1: Hooks phải nằm trong thân hàm component
     const [vaiTro, setVaiTro] = useState('');
     const [denNgay, setDenNgay] = useState('');
     const [loading, setLoading] = useState(false);
@@ -94,10 +91,9 @@ const UpdateResidentModal = ({ isOpen, onClose, resident, onUpdated, currentApar
                         />
                         <p className="text-xs text-gray-500 mt-1">Để trống nếu cư trú vô thời hạn.</p>
                     </div>
-                    
                     <div className="flex justify-end gap-3 mt-6">
-                        <button type="button" onClick={onClose} className="btn-secondary">Hủy</button>
-                        <button type="submit" disabled={loading} className="btn-primary bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+                        <button type="button" onClick={onClose} className="px-4 py-2 border rounded text-gray-600 hover:bg-gray-100">Hủy</button>
+                        <button type="submit" disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-bold">
                             {loading ? 'Đang cập nhật...' : 'Lưu Cập nhật'}
                         </button>
                     </div>
@@ -107,24 +103,16 @@ const UpdateResidentModal = ({ isOpen, onClose, resident, onUpdated, currentApar
     );
 };
 
-
-// --- COMPONENT THẺ CƯ DÂN (ĐÃ FIX LỖI AXIOS & THÊM CHECK CHỦ HỘ) ---
+// --- COMPONENT THẺ CƯ DÂN ---
 const ResidentCard = ({ resident, onUpdateRequested, onEditRequested }) => {
-    
-    // Xử lý sự kiện Kết thúc Cư trú (Chuyển đi - Soft Delete)
     const handleEndResidency = async () => {
-        if (!window.confirm(`Xác nhận cư dân ${resident.HoTen} đã chuyển đi? Việc này sẽ kết thúc lịch sử cư trú của họ vào ngày hôm nay.`)) return;
-        
+        if (!window.confirm(`Xác nhận cư dân ${resident.HoTen} đã chuyển đi?`)) return;
         try {
-            // FIX 2: Gọi API End Residency
             await api.put(`/lichsucutru/end/${resident.MaLichSu}`);
             toast.success(`Đã xác nhận ${resident.HoTen} chuyển đi.`);
-            onUpdateRequested(); // Reload lại dữ liệu trang cha
+            onUpdateRequested(); 
         } catch (err) {
-            // FIX 3: Bắt lỗi từ Backend (Đặc biệt là lỗi Chủ hộ)
-            const errorMessage = err.response?.data || "Lỗi khi kết thúc cư trú. Vui lòng kiểm tra console.";
-            toast.error(errorMessage);
-            console.error('Lỗi khi kết thúc cư trú:', err);
+            toast.error(err.response?.data || "Lỗi khi kết thúc cư trú.");
         }
     };
     
@@ -143,19 +131,9 @@ const ResidentCard = ({ resident, onUpdateRequested, onEditRequested }) => {
                         <p className="text-xs text-gray-500">ID: {resident.MaNguoiDung}</p>
                     </div>
                 </div>
-                
-                {/* Hành động chỉ hiển thị khi cư dân đang active */}
                 {isCurrentlyActive && (
                     <div className="flex gap-2">
-                        {/* Nút Sửa / Gia hạn */}
-                        <button 
-                            onClick={() => onEditRequested(resident)} 
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
-                            title="Sửa / Gia hạn cư trú"
-                        >
-                            📝
-                        </button>
-                        {/* Nút Kết thúc cư trú / Chuyển đi (CHẶN NẾU LÀ CHỦ HỘ) */}
+                        <button onClick={() => onEditRequested(resident)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Sửa / Gia hạn">📝</button>
                         <button 
                             onClick={isOwner ? null : handleEndResidency}
                             disabled={isOwner}
@@ -167,11 +145,8 @@ const ResidentCard = ({ resident, onUpdateRequested, onEditRequested }) => {
                     </div>
                 )}
             </div>
-            
             <div className="mt-3 text-sm space-y-1 border-t pt-2">
-                <p className={`font-medium ${isOwner ? 'text-blue-600' : 'text-gray-600'}`}>
-                    Vai trò: {resident.VaiTroCuTru}
-                </p>
+                <p className={`font-medium ${isOwner ? 'text-blue-600' : 'text-gray-600'}`}>Vai trò: {resident.VaiTroCuTru}</p>
                 <p className="text-gray-500 text-xs italic">
                     Ở từ: {formatDate(resident.TuNgay)} 
                     - Đến: {resident.DenNgay ? formatDate(resident.DenNgay) : 'Vô thời hạn'}
@@ -182,22 +157,16 @@ const ResidentCard = ({ resident, onUpdateRequested, onEditRequested }) => {
     );
 };
 
-
 // --- COMPONENT CHÍNH ---
 function ApartmentDetailPage() {
-    
-    // ⭐ FIX HOOK CALL: TẤT CẢ CÁC HOOK PHẢI NẰM Ở ĐÂY ⭐
     const { id } = useParams();
     const apartmentId = parseInt(id);
 
     const [apartmentDetails, setApartmentDetails] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    
-    // State quản lý Modal Sửa/Gia hạn
     const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
     const [residentToUpdate, setResidentToUpdate] = useState(null);
-    
     
     const fetchApartmentDetails = useCallback(async () => {
         setLoading(true);
@@ -207,7 +176,6 @@ function ApartmentDetailPage() {
             setError(null);
         } catch (err) {
             setError(err.message || 'Không thể tải chi tiết căn hộ.');
-            // console.error(err);
         } finally {
             setLoading(false);
         }
@@ -219,8 +187,6 @@ function ApartmentDetailPage() {
         }
     }, [fetchApartmentDetails]);
     
-    
-    // Handlers mở/đóng Modal (Được đặt trong thân hàm component)
     const handleOpenUpdateModal = (resident) => {
         setResidentToUpdate(resident);
         setIsUpdateModalOpen(true);
@@ -231,18 +197,20 @@ function ApartmentDetailPage() {
         setIsUpdateModalOpen(false);
     };
 
-
     if (loading) return <div className="p-8 text-center text-gray-500">Đang tải dữ liệu căn hộ...</div>;
     if (error) return <div className="p-8 text-center text-red-500">Lỗi: {error}</div>;
     if (!apartmentDetails) return null;
     
     const apartment = apartmentDetails; 
 
-    // Kiểm tra và hiển thị lỗi nếu có
-    if (apartment.ActiveResidents.length > 0 && apartment.ActiveResidents.some(r => r.VaiTroCuTru.includes('Chủ hộ')) && apartment.MaHopDong === null) {
-        toast.error("Cảnh báo dữ liệu: Căn hộ có Chủ hộ nhưng không có Hợp đồng đang hiệu lực!");
-    }
+    // --- FIX LỖI CRASH Ở ĐÂY ---
+    // Đảm bảo ActiveResidents luôn là mảng, kể cả khi API trả về null/undefined
+    const safeActiveResidents = Array.isArray(apartment.ActiveResidents) ? apartment.ActiveResidents : [];
 
+    // Kiểm tra cảnh báo (Dùng biến safeActiveResidents thay vì apartment.ActiveResidents)
+    if (safeActiveResidents.length > 0 && safeActiveResidents.some(r => r.VaiTroCuTru.includes('Chủ hộ')) && apartment.MaHopDong === null) {
+        // Có thể bật toast cảnh báo ở đây nếu muốn
+    }
 
     return (
         <div className="p-6 bg-gray-50 min-h-screen">
@@ -253,10 +221,8 @@ function ApartmentDetailPage() {
             </h1>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Cột 1 & 2: Thông tin chi tiết */}
                 <div className="lg:col-span-2 space-y-8">
-                    
-                    {/* 1. THÔNG TIN CƠ BẢN VÀ TRẠNG THÁI */}
+                    {/* THÔNG TIN CƠ BẢN */}
                     <div className="bg-white p-6 rounded-lg shadow-md border border-gray-100">
                         <h2 className="text-2xl font-semibold text-blue-600 mb-4 border-b pb-2">Thông tin Cơ bản</h2>
                         <div className="grid grid-cols-2 gap-4 text-sm">
@@ -264,71 +230,67 @@ function ApartmentDetailPage() {
                             <p className="text-gray-900 font-bold">{apartment.LoaiCanHo || 'Chưa xác định'}</p>
                             
                             <p className="font-medium text-gray-700">Giới hạn Cư trú Max:</p>
-                            <p className="text-gray-900 font-bold text-red-600">{apartment.ResidentLimit.Max} người</p>
+                            <p className="text-gray-900 font-bold text-red-600">
+                                {apartment.ResidentLimit?.Max || 0} người
+                            </p>
                             
                             <p className="font-medium text-gray-700">Diện tích:</p>
                             <p className="text-gray-900">{apartment.DienTich} m²</p>
                             
-                            <p className="font-medium text-gray-700">Trạng thái hiện tại:</p>
+                            <p className="font-medium text-gray-700">Trạng thái:</p>
                             <p className={`font-bold ${apartment.MaTrangThai === 8 ? 'text-green-600' : 'text-orange-600'}`}>{apartment.TenTrangThai}</p>
                         </div>
                     </div>
 
-                    {/* 2. THÔNG TIN HỢP ĐỒNG & CHỦ HỘ CHÍNH */}
+                    {/* HỢP ĐỒNG */}
                     <div className="bg-white p-6 rounded-lg shadow-md border border-gray-100">
                         <h2 className="text-2xl font-semibold text-indigo-600 mb-4 border-b pb-2">Hợp đồng & Chủ/Thuê Chính</h2>
                         {apartment.MaHopDong ? (
                             <div className="space-y-3 text-sm">
                                 <p className={`font-bold text-lg ${apartment.LoaiHopDong === 'Mua/Bán' ? 'text-green-700' : 'text-red-700'}`}>
-                                    Loại Hợp đồng: {apartment.LoaiHopDong} (Mã HĐ: {apartment.MaHopDong})
+                                    Loại HĐ: {apartment.LoaiHopDong} (Mã: {apartment.MaHopDong})
                                 </p>
                                 <p><strong>Chủ/Thuê Chính:</strong> {apartment.TenChuHo} (ID: {apartment.BenB_Id})</p>
                                 <p><strong>SĐT/Email:</strong> {apartment.SDTChuHo || 'N/A'} / {apartment.EmailChuHo || 'N/A'}</p>
-                                <p><strong>Ngày Hết Hạn:</strong> {formatDate(apartment.NgayHetHan)}</p>
+                                <p><strong>Hết Hạn:</strong> {formatDate(apartment.NgayHetHan)}</p>
                             </div>
                         ) : (
-                            <p className="text-sm text-gray-500">Căn hộ này chưa có Hợp đồng chính đang có hiệu lực.</p>
+                            <p className="text-sm text-gray-500">Căn hộ này chưa có Hợp đồng chính đang hiệu lực.</p>
                         )}
                     </div>
                     
-                    {/* 3. THÔNG TIN LISTING (Nếu có) */}
+                    {/* LISTING (NẾU CÓ) */}
                     {apartment.IsAvailableForRent === 1 && (
                         <div className="bg-white p-6 rounded-lg shadow-md border border-gray-100">
                             <h2 className="text-2xl font-semibold text-yellow-600 mb-4 border-b pb-2">Thông tin Listing (Cho thuê)</h2>
                             <div className="space-y-3 text-sm">
                                 <p><strong>Giá Thuê:</strong> <span className='font-bold text-xl text-red-600'>{formatCurrency(apartment.RentPrice)}/tháng</span></p>
-                                <p><strong>Mô tả:</strong> {apartment.ListingDescription || 'Chưa có mô tả chi tiết.'}</p>
+                                <p><strong>Mô tả:</strong> {apartment.ListingDescription || 'Chưa có mô tả.'}</p>
                             </div>
                         </div>
                     )}
-                    
-                    <div className="bg-white p-6 rounded-lg shadow-md border border-gray-100">
-                        <h2 className="text-2xl font-semibold text-purple-600 mb-4 border-b pb-2">Dịch vụ & Yêu cầu</h2>
-                        <p className='text-sm text-gray-500'>*Các mục này sẽ được triển khai chi tiết trong Module tiếp theo (Yêu cầu & Tài chính).</p>
-                    </div>
-
                 </div>
 
-                {/* Cột 3: Quản lý Cư dân */}
+                {/* QUẢN LÝ CƯ DÂN */}
                 <div className="lg:col-span-1 space-y-6">
-                    
-                    {/* FORM THÊM CƯ DÂN */}
                     <AddResidentForm 
                         apartmentId={apartmentId} 
-                        onMemberAdded={fetchApartmentDetails} // Hàm làm mới dữ liệu
+                        onMemberAdded={fetchApartmentDetails} 
                         currentLimit={apartment.ResidentLimit}
                     />
 
-                    {/* DANH SÁCH CƯ DÂN HIỆN TẠI */}
                     <div className="p-6 bg-white rounded-lg shadow-md border border-gray-100">
                         <h2 className="text-2xl font-semibold text-green-600 mb-4 border-b pb-2">
                             Cư dân Đang ở 
                         </h2>
-                        <span className='text-sm text-gray-500'>({apartment.ResidentLimit.Current} / {apartment.ResidentLimit.Max})</span>
-                        {apartment.ActiveResidents.length > 0 ? (
+                        <span className='text-sm text-gray-500'>
+                            ({apartment.ResidentLimit?.Current || 0} / {apartment.ResidentLimit?.Max || 0})
+                        </span>
+                        
+                        {/* DÙNG BIẾN AN TOÀN safeActiveResidents */}
+                        {safeActiveResidents.length > 0 ? (
                             <div className="space-y-3 mt-4 max-h-96 overflow-y-auto pr-2">
-                                {/* ⭐ TRUYỀN PROPS ĐÃ FIX ⭐ */}
-                                {apartment.ActiveResidents.map(resident => (
+                                {safeActiveResidents.map(resident => (
                                     <ResidentCard 
                                         key={resident.MaLichSu} 
                                         resident={resident} 
@@ -338,13 +300,12 @@ function ApartmentDetailPage() {
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-sm text-gray-500 mt-4">Căn hộ chưa có cư dân nào được ghi nhận đang cư trú.</p>
+                            <p className="text-sm text-gray-500 mt-4">Chưa có cư dân nào đang cư trú.</p>
                         )}
                     </div>
                 </div>
             </div>
             
-            {/* MODAL CẬP NHẬT/GIA HẠN CƯ DÂN */}
             <UpdateResidentModal
                 isOpen={isUpdateModalOpen}
                 onClose={handleCloseUpdateModal}

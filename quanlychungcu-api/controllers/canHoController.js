@@ -272,20 +272,52 @@ const updateCanHo = async (req, res) => {
  * DELETE /api/canho/:id
  */
 const deleteCanHo = async (req, res) => {
+    const transaction = new mssql.Transaction(req.pool);
     try {
         const { id } = req.params;
-        const result = await req.pool.request()
-            .input('MaCanHo', mssql.Int, id)
-            .query('DELETE FROM dbo.CanHo OUTPUT Deleted.* WHERE MaCanHo = @MaCanHo');
+        await transaction.begin();
+
+        // 1. Xóa Yêu Cầu / Phản ánh (Fix lỗi FK_YeuCau_CanHo)
+        const requestYC = new mssql.Request(transaction);
+        await requestYC.input('MaCanHo', mssql.Int, id).query(`
+            DELETE FROM dbo.YeuCau WHERE MaCanHo = @MaCanHo
+        `);
+
+        // 2. Xóa Lịch sử cư trú (Dọn dẹp data rác cũ)
+        const requestLS = new mssql.Request(transaction);
+        await requestLS.input('MaCanHo', mssql.Int, id).query(`
+            DELETE FROM dbo.LichSuCuTru WHERE MaCanHo = @MaCanHo
+        `);
+
+        // ⭐ 3. (MỚI) Xóa Chỉ số Dịch vụ (Điện/Nước) (Fix lỗi FK_ChiSoDichVu_CanHo) ⭐
+        // Lưu ý: Chỉ xóa được nếu chỉ số này chưa bị ràng buộc bởi Hóa Đơn.
+        const requestCS = new mssql.Request(transaction);
+        await requestCS.input('MaCanHo', mssql.Int, id).query(`
+            DELETE FROM dbo.ChiSoDichVu WHERE MaCanHo = @MaCanHo
+        `);
+
+        // 4. Tiến hành xóa Căn hộ
+        const requestCH = new mssql.Request(transaction);
+        const result = await requestCH.input('MaCanHo', mssql.Int, id).query(`
+            DELETE FROM dbo.CanHo OUTPUT Deleted.* WHERE MaCanHo = @MaCanHo
+        `);
 
         if (result.recordset.length === 0) {
+            await transaction.rollback();
             return res.status(404).send('Không tìm thấy căn hộ để xóa');
         }
-        res.json({ message: 'Đã xóa căn hộ thành công', data: result.recordset[0] });
+
+        await transaction.commit();
+        res.json({ message: 'Đã xóa Căn hộ và toàn bộ dữ liệu phụ (Yêu cầu, Lịch sử, Chỉ số)', data: result.recordset[0] });
+
     } catch (err) {
+        if (transaction.active) await transaction.rollback();
         console.error('Lỗi DELETE CanHo:', err);
+        
+        // RÀO CHẮN AN TOÀN: Tiền nong & Pháp lý
         if (err.number === 547) {
-            return res.status(400).send('Không thể xóa: Căn hộ này đang được liên kết bởi dữ liệu khác (Hợp Đồng, Hóa Đơn,...).');
+            // Nếu lỗi vẫn xảy ra sau khi đã xóa ChiSoDichVu, nghĩa là dính Hóa Đơn hoặc Hợp Đồng
+            return res.status(400).send('Không thể xóa: Căn hộ này đang có Hợp Đồng hoặc Hóa Đơn tài chính. Vui lòng kiểm tra và xử lý dữ liệu tiền nong trước.');
         }
         res.status(500).send(err.message);
     }

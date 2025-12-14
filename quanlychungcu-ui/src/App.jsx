@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react"; 
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { Toaster } from 'react-hot-toast';
 
 // 1. IMPORT AUTHPROVIDER VÀ AUTHSERVICE
 import { AuthProvider, useAuth } from "./context/AuthContext"; 
@@ -12,6 +13,7 @@ import AIChatbox from "./components/AIChatbox";
 
 // 2. IMPORT CÁC COMPONENT VÀ TRANG (Giữ nguyên)
 import ApartmentDetailPage from "./pages/ApartmentDetailPage";
+import ApartmentShowcasePage from "./pages/ApartmentShowcasePage";
 import MyApartmentPage from "./pages/MyApartmentPage";
 import ProfilePage from './pages/ProfilePage';
 import DashboardPage from "./pages/DashboardPage"; 
@@ -61,6 +63,7 @@ function AppContent() {
 
   return (
     <div className="App">
+      <Toaster position="top-right" reverseOrder={false} />
       <Navbar /> 
       <main>
         <AuthGuardEventBridge />
@@ -78,6 +81,7 @@ function AppContent() {
             <Route path="/" element={<DashboardPage />} /> 
             
             <Route path="/staff/apartments/:id" element={<ApartmentDetailPage />} />
+            <Route path="/showcase" element={<ApartmentShowcasePage />} />
             <Route path="/my-apartment" element={<MyApartmentPage />} />
             <Route path="/blocks" element={<BlocksPage />} />
             <Route path="/blocks/:id" element={<BlockDetailsPage />} />

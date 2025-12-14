@@ -1,0 +1,8 @@
+# Loại trừ các thư mục thường không cần thiết trong môi trường production
+node_modules
+npm-debug.log
+.git
+.gitignore
+.DS_Store
+# Loại trừ các file cấu hình local
+.env
